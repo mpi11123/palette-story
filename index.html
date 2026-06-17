@@ -8,14 +8,15 @@
 <title>palette story.</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html{height:100%;overflow-y:scroll;}
-body{height:calc(100% + 1px);overflow:hidden;background:#F7F3FA;}
+html{height:100%;overflow:hidden;}
+body{height:100%;overflow:hidden;background:#F7F3FA;}
 #root{
   height:100vh;
   height:100dvh;
   overflow:hidden;
   position:fixed;
   top:0;left:0;right:0;bottom:0;
+  -webkit-overflow-scrolling:touch;
 }
 </style>
 </head>
@@ -391,7 +392,8 @@ const OUT_W=1080, OUT_H=1920;
 const CW=405, CH=720;
 const SCALE=OUT_W/CW;
 const PAD=Math.round(CW*0.1);
-const DPR = typeof window!=='undefined' ? (window.devicePixelRatio||2) : 2;
+// プレビューも保存用と同じ1080×1920で描画して、Color Tagの小さい文字を高画質化
+const PREVIEW_SCALE = OUT_W / CW;
 
 // ─────────────────────────────────────────────
 // MAIN COMPONENT
@@ -547,8 +549,8 @@ function PaletteStory() {
     const cv=previewRef.current; if(!cv)return;
     const ctx=cv.getContext('2d');
     ctx.setTransform(1,0,0,1,0,0); // リセット
-    ctx.clearRect(0,0,CW*2,CH*2);
-    ctx.scale(2,2); // Retina対応
+    ctx.clearRect(0,0,OUT_W,OUT_H);
+    ctx.scale(PREVIEW_SCALE,PREVIEW_SCALE); // 1080×1920へ直接描画
     ctx.fillStyle=bgColor; ctx.fillRect(0,0,CW,CH);
 
     // photoLayout インライン計算
@@ -737,14 +739,9 @@ function PaletteStory() {
 
   // ── save (iPhone Safari対応) ──
   const save=()=>{
-    // 保存用canvasに1080x1920で再描画
-    const sv=document.createElement('canvas');
-    sv.width=OUT_W; sv.height=OUT_H;
-    const ctx=sv.getContext('2d');
-    ctx.scale(SCALE,SCALE);
-    // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
-    ctx.drawImage(previewRef.current,0,0,CW*2,CH*2,0,0,CW,CH);
-    setShowSave(sv.toDataURL('image/png'));
+    // previewRef は常に1080×1920で描画済み。拡大コピーせず、そのまま保存する。
+    if(!previewRef.current)return;
+    setShowSave(previewRef.current.toDataURL('image/png'));
   };
 
 
@@ -788,11 +785,11 @@ function PaletteStory() {
       <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
       {/* ── 全画面プレビュー ── */}
-      <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'#EDE8F2'}}
+      <div style={{flex:1,position:'relative',overflowY:'auto',overflowX:'hidden',display:'flex',alignItems:'flex-start',justifyContent:'center',background:'#EDE8F2',WebkitOverflowScrolling:'touch',paddingTop:50,paddingBottom:18}}
         onClick={()=>{if(!img)fileRef.current.click();}}>
 
-        <canvas ref={previewRef} width={CW*2} height={CH*2}
-          style={{height:'100%',width:'auto',aspectRatio:'9/16',display:'block',maxWidth:'100%',touchAction:'none'}}/>
+        <canvas ref={previewRef} width={OUT_W} height={OUT_H}
+          style={{height:'min(86dvh, 760px)',width:'auto',aspectRatio:'9/16',display:'block',maxWidth:'100%',touchAction:'pan-y'}}/>
 
 
 
@@ -1002,7 +999,7 @@ function PaletteStory() {
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginBottom:10}}>
                   {[['left','Left'],['center','Center'],['right','Right']].map(([v,l])=>(
-                    <button key={v} onClick={()=>{setBodyAlign(v);setBodyPos(p=>({...p,snap:v}));}} style={{padding:'8px 0',background:bodyAlign===v?'#EEE5F5':'#fff',color:bodyAlign===v?'#3D4458':'#8A90A0',border:`1.5px solid ${bodyAlign===v?'#D9C7E3':'#E7DDEA'}0,168,200,.4)':'rgba(255,255,255,.1)'}`,borderRadius:10,fontFamily:'inherit',fontSize:'.74rem',cursor:'pointer'}}>{l}</button>
+                    <button key={v} onClick={()=>{setBodyAlign(v);setBodyPos(p=>({...p,snap:v}));}} style={{padding:'8px 0',background:bodyAlign===v?'#EEE5F5':'#fff',color:bodyAlign===v?'#3D4458':'#8A90A0',border:`1.5px solid ${bodyAlign===v?'#D9C7E3':'#E7DDEA'}`,borderRadius:10,fontFamily:'inherit',fontSize:'.74rem',cursor:'pointer'}}>{l}</button>
                   ))}
                 </div>
                 <Lbl t="Position" sub={`+${textOffset}px`}/>
@@ -1058,14 +1055,14 @@ function PaletteStory() {
         <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',zIndex:400}}>
           <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',padding:'16px 12px 8px'}}>
             <canvas
-              width={CW*2} height={CH*2}
+              width={OUT_W} height={OUT_H}
               ref={el=>{
                 if(!el||!previewRef.current)return;
                 requestAnimationFrame(()=>{
                   if(!previewRef.current)return;
-                  el.width=CW*2;el.height=CH*2;
+                  el.width=OUT_W;el.height=OUT_H;
                   const ctx=el.getContext('2d');
-                  ctx.drawImage(previewRef.current,0,0,CW*2,CH*2);
+                  ctx.drawImage(previewRef.current,0,0,OUT_W,OUT_H);
                 });
               }}
               style={{maxWidth:'100%',maxHeight:'100%',aspectRatio:'9/16',display:'block',boxShadow:'0 0 30px rgba(0,0,0,.6)'}}
