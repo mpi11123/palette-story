@@ -423,6 +423,7 @@ function PaletteStory() {
   const [showSugg, setShowSugg] = useState(false);
   const [tab,      setTab]      = useState('photo');
   const [showFullPreview,setShowFullPreview]=useState(false);
+  const [showSave,setShowSave]=useState(null); // 保存用dataURL
   // canvas直接編集用
   const [titlePos,setTitlePos]=useState({snap:'left',offsetY:0});   // snap: left|center|right
   const [bodyPos,setBodyPos]=useState({snap:'left',offsetY:20});
@@ -734,18 +735,11 @@ function PaletteStory() {
     sv.width=OUT_W; sv.height=OUT_H;
     const ctx=sv.getContext('2d');
     ctx.scale(SCALE,SCALE);
-    // プレビューcanvasから描画（2倍スケールのcanvasなので調整）
+    // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
     ctx.drawImage(previewRef.current,0,0,CW*2,CH*2,0,0,CW,CH);
-
-    const dataUrl=sv.toDataURL('image/png');
-    const win=window.open('','_blank');
-    if(win){
-      win.document.write(`<!DOCTYPE html><html><head><title>palette story</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;}img{max-width:100%;max-height:85vh;object-fit:contain;}p{color:rgba(255,255,255,.55);font-size:13px;font-family:sans-serif;margin:0;letter-spacing:.04em;}</style></head><body><img src="${dataUrl}"/><p>長押しして「写真に追加」または保存</p></body></html>`);
-      win.document.close();
-    }else{
-      const a=document.createElement('a');a.download='palette-story.png';a.href=dataUrl;document.body.appendChild(a);a.click();document.body.removeChild(a);
-    }
+    setShowSave(sv.toDataURL('image/png'));
   };
+
 
   // ── UI helpers ──
   const C={bg:'#F7F3FA',ink:'#3D4458',sub:'#8A90A0',accent:'#C8A8C8',border:'#E7DDEA',panel:'#FFFFFF',accentSoft:'#E8DDF0',cardInk:'#667A8C'};
@@ -1033,6 +1027,24 @@ function PaletteStory() {
           ))}
         </div>
       </div>
+
+      {/* 保存モーダル */}
+      {showSave&&(
+        <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}>
+          <div style={{color:'rgba(255,255,255,.6)',fontSize:'.72rem',marginBottom:12,letterSpacing:'.06em'}}>長押しまたはダウンロードで保存</div>
+          <img src={showSave} style={{maxWidth:'100%',maxHeight:'70vh',aspectRatio:'9/16',objectFit:'contain',boxShadow:'0 0 30px rgba(0,0,0,.5)'}} alt="palette story"/>
+          <div style={{display:'flex',gap:12,marginTop:20}}>
+            <a href={showSave} download="palette-story.png"
+              style={{padding:'14px 28px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:24,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer',textDecoration:'none',display:'block'}}>
+              ↓ ダウンロード
+            </a>
+            <button onClick={()=>setShowSave(null)}
+              style={{padding:'14px 28px',background:'#fff',color:'#3D4458',border:'none',borderRadius:24,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
+              ✕ 閉じる
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Full Preview modal */}
       {showFullPreview&&(
