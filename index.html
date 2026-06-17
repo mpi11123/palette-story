@@ -771,8 +771,7 @@ function PaletteStory() {
   };
 
   const resetAll=()=>{
-    if(img && !confirm('新しく作り直しますか？
-現在の編集内容は消えます。')) return;
+    if(img && !confirm('新しく作り直しますか？\n現在の編集内容は消えます。')) return;
     setImg(null); setPixels([]); setColors([]); setBgSugs([]); setSelBg(null);
     setBgColor('#F5F2EE'); setStrategy(0); setColorHistory([]);
     setPhotoSize('M'); setFitMode('contain'); setCrop(null); setFinalCrop(null); setShowCrop(false);
