@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>palette story.</title>
@@ -432,7 +432,11 @@ function PaletteStory() {
   const [showSugg, setShowSugg] = useState(false);
   const [tab,      setTab]      = useState(null);
   const [showFullPreview,setShowFullPreview]=useState(false);
-  const [showSave,setShowSave]=useState(null); // 保存用dataURL
+  const [showSave,setShowSave]=useState(null); // 共有非対応時の保存用dataURL
+  const [showInstallGuide,setShowInstallGuide]=useState(false);
+  const isStandalone = useMemo(()=>{
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  },[]);
   // canvas直接編集用
   const [titlePos,setTitlePos]=useState({snap:'left',offsetY:0});   // snap: left|center|right
   const [bodyPos,setBodyPos]=useState({snap:'left',offsetY:20});
@@ -646,7 +650,7 @@ function PaletteStory() {
       const bSnap=bodyPos.snap||bodyAlign;
       const baX=bSnap==='center'?CW/2:bSnap==='left'?PAD:CW-PAD;
       const bY=titleBaseY+bodyPos.offsetY;
-      ctx.fillStyle=bodyColor; const bw=bodyBold===true?700:400; ctx.font=`${bw} ${bodySize}px ${bodyFont}`;
+      ctx.fillStyle=bodyColor; const bw=bodyBold===true?700:500; ctx.font=`${bw} ${bodySize}px ${bodyFont}`;
       ctx.textAlign=bSnap; ctx.textBaseline='alphabetic';
       const blines=wrapText(ctx,bodyTxt.trim(),textW);
       blines.forEach((l,i)=>{ctx.fillText(l,baX,bY+i*bodySize*1.7);});
@@ -656,6 +660,15 @@ function PaletteStory() {
   },[img,bgColor,colors,cardStyle,cardAlign,cardScale,photoSize,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,bodyBold,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos]);
 
   useEffect(()=>{render();},[render]);
+
+  // Webフォント読み込み後にCanvasを再描画（Caveatなど手書きフォント対策）
+  useEffect(()=>{
+    if(!document.fonts) return;
+    const loads=[];
+    if(titleFont) loads.push(document.fonts.load(`400 ${titleSize}px ${titleFont}`));
+    if(bodyFont) loads.push(document.fonts.load(`${bodyBold?700:500} ${bodySize}px ${bodyFont}`));
+    Promise.all(loads).then(()=>render()).catch(()=>{});
+  },[titleFont,bodyFont,titleSize,bodySize,bodyBold,render]);
 
   // ── crop canvas draw ──
   const drawCropCanvas=useCallback(()=>{
@@ -737,11 +750,38 @@ function PaletteStory() {
     };
   },[showCrop,img,crop]);
 
-  // ── save (iPhone Safari対応) ──
-  const save=()=>{
-    // previewRef は常に1080×1920で描画済み。拡大コピーせず、そのまま保存する。
+  // ── save (iPhone Safari対応 / 共有シート優先) ──
+  const save=async()=>{
     if(!previewRef.current)return;
-    setShowSave(previewRef.current.toDataURL('image/png'));
+    previewRef.current.toBlob(async(blob)=>{
+      if(!blob)return;
+      const file = new File([blob], 'palette-story.png', {type:'image/png'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{
+          await navigator.share({files:[file], title:'palette story.'});
+          return;
+        }catch(err){
+          // キャンセル時は何もしない
+          if(err && err.name === 'AbortError') return;
+        }
+      }
+      // 共有非対応時だけ長押し保存用モーダル
+      setShowSave(URL.createObjectURL(blob));
+    }, 'image/png');
+  };
+
+  const resetAll=()=>{
+    if(img && !confirm('新しく作り直しますか？
+現在の編集内容は消えます。')) return;
+    setImg(null); setPixels([]); setColors([]); setBgSugs([]); setSelBg(null);
+    setBgColor('#F5F2EE'); setStrategy(0); setColorHistory([]);
+    setPhotoSize('M'); setFitMode('contain'); setCrop(null); setFinalCrop(null); setShowCrop(false);
+    setCardStyle('pantone'); setCardAlign('right'); setCardScale(90);
+    setTitleTxt(''); setBodyTxt(''); setTitleAlign('left'); setBodyAlign('left');
+    setTitlePos({snap:'left',offsetY:0}); setBodyPos({snap:'left',offsetY:20});
+    setTitleFont("'Playfair Display', serif"); setBodyFont("'DM Sans', sans-serif");
+    setTitleSize(24); setBodySize(15); setTitleColor('#3D4458'); setBodyColor('rgba(61,68,88,0.72)'); setBodyBold(false);
+    setSuggestions([]); setShowSugg(false); setTab('photo');
   };
 
 
@@ -751,7 +791,7 @@ function PaletteStory() {
     <button onClick={onClick} disabled={disabled} style={{padding:'12px 16px',background:disabled?'#E0D8E8':'#C8A8C8',color:disabled?'rgba(255,255,255,.6)':'#fff',border:'none',borderRadius:10,fontFamily:'inherit',fontSize:'.84rem',fontWeight:500,cursor:disabled?'default':'pointer',width:full?'100%':'auto',letterSpacing:'.03em',...style}}>{children}</button>
   );
   const SBtn=({onClick,active,children,full=true,style={}})=>(
-    <button onClick={onClick} style={{padding:'10px 12px',background:active?'#EEE5F5':'#fff',color:active?'#3D4458':C.cardInk,border:`1.5px solid ${active?'#D9C7E3':C.border}`,borderRadius:10,fontFamily:'inherit',fontSize:'.78rem',cursor:'pointer',width:full?'100%':'auto',transition:'all .12s',...style}}>{children}</button>
+    <button onClick={onClick} style={{padding:'10px 12px',background:active?'#EEE5F5':'#fff',color:active?'#3D4458':C.cardInk,border:`1.5px solid ${active?'#D9C7E3':C.border}`,borderRadius:8,fontFamily:'inherit',fontSize:'.78rem',cursor:'pointer',width:full?'100%':'auto',transition:'all .12s',...style}}>{children}</button>
   );
   const Lbl=({t,sub:s})=>(
     <div style={{marginBottom:7,marginTop:14,display:'flex',alignItems:'baseline',gap:6}}>
@@ -798,16 +838,28 @@ function PaletteStory() {
           <span style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:600,fontSize:'1rem',color:'#3D4458',letterSpacing:'.01em',opacity:.92}}>
             palette story<span style={{color:'#C8A8C8'}}>.</span>
           </span>
-          <div style={{display:'flex',gap:7,pointerEvents:'auto'}}>
+          <div style={{display:'flex',gap:6,pointerEvents:'auto'}}>
+            {!isStandalone&&(
+              <button onClick={()=>setShowInstallGuide(true)}
+                style={{padding:'5px 10px',background:'rgba(255,255,255,.82)',color:'#3D4458',border:'none',borderRadius:8,fontFamily:'inherit',fontSize:'.68rem',fontWeight:500,cursor:'pointer'}}>
+                全画面
+              </button>
+            )}
+            {img&&(
+              <button onClick={resetAll}
+                style={{padding:'5px 10px',background:'rgba(255,255,255,.82)',color:'#3D4458',border:'none',borderRadius:8,fontFamily:'inherit',fontSize:'.68rem',fontWeight:500,cursor:'pointer'}}>
+                New
+              </button>
+            )}
             {img&&(
               <button onClick={()=>setShowFullPreview(true)}
-                style={{padding:'5px 14px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.72rem',fontWeight:500,cursor:'pointer'}}>
+                style={{padding:'5px 10px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:8,fontFamily:'inherit',fontSize:'.68rem',fontWeight:500,cursor:'pointer'}}>
                 Preview
               </button>
             )}
             {img&&colors.length>0&&(
               <button onClick={save}
-                style={{padding:'5px 14px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.7rem',fontWeight:500,cursor:'pointer'}}>
+                style={{padding:'5px 10px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:8,fontFamily:'inherit',fontSize:'.68rem',fontWeight:500,cursor:'pointer'}}>
                 Save
               </button>
             )}
@@ -816,7 +868,7 @@ function PaletteStory() {
       </div>
 
       {/* ── Bottom Tab Bar + Sheet ── */}
-      <div style={{position:'absolute',left:10,right:10,bottom:'calc(8px + env(safe-area-inset-bottom))',zIndex:80,background:'rgba(255,255,255,.92)',backdropFilter:'blur(18px)',WebkitBackdropFilter:'blur(18px)',border:'1px solid rgba(231,221,234,.9)',borderRadius:26,boxShadow:'0 14px 44px rgba(61,68,88,.18)',overflow:'hidden'}}>
+      <div style={{position:'absolute',left:10,right:10,bottom:'calc(8px + env(safe-area-inset-bottom))',zIndex:80,background:'rgba(255,255,255,.92)',backdropFilter:'blur(18px)',WebkitBackdropFilter:'blur(18px)',border:'1px solid rgba(231,221,234,.9)',borderRadius:14,boxShadow:'0 14px 44px rgba(61,68,88,.18)',overflow:'hidden'}}>
 
         {/* シートパネル */}
         {tab&&(
@@ -1032,20 +1084,34 @@ function PaletteStory() {
         </div>
       </div>
 
-      {/* 保存モーダル */}
+      {/* 保存モーダル（共有非対応時のみ） */}
       {showSave&&(
-        <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}>
-          <div style={{color:'#8A90A0',fontSize:'.72rem',marginBottom:12,letterSpacing:'.06em'}}>長押しまたはダウンロードで保存</div>
-          <img src={showSave} style={{maxWidth:'100%',maxHeight:'70vh',aspectRatio:'9/16',objectFit:'contain',boxShadow:'0 0 30px rgba(0,0,0,.5)'}} alt="palette story"/>
-          <div style={{display:'flex',gap:12,marginTop:20}}>
-            <a href={showSave} download="palette-story.png"
-              style={{padding:'14px 28px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:24,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer',textDecoration:'none',display:'block'}}>
-              ↓ ダウンロード
-            </a>
-            <button onClick={()=>setShowSave(null)}
-              style={{padding:'14px 28px',background:'#fff',color:'#3D4458',border:'none',borderRadius:24,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
-              ✕ 閉じる
-            </button>
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.92)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}>
+          <div style={{color:'rgba(255,255,255,.72)',fontSize:'.78rem',marginBottom:12,letterSpacing:'.04em',textAlign:'center',lineHeight:1.7}}>
+            共有保存が使えない環境です。<br/>画像を長押しして「写真に保存」を選んでください。
+          </div>
+          <img src={showSave} style={{maxWidth:'100%',maxHeight:'74vh',aspectRatio:'9/16',objectFit:'contain',boxShadow:'0 0 30px rgba(0,0,0,.5)'}} alt="palette story"/>
+          <button onClick={()=>setShowSave(null)}
+            style={{marginTop:18,padding:'12px 26px',background:'#fff',color:'#3D4458',border:'none',borderRadius:10,fontFamily:'inherit',fontSize:'.86rem',fontWeight:600,cursor:'pointer'}}>
+            閉じる
+          </button>
+        </div>
+      )}
+
+      {/* ホーム画面追加ガイド */}
+      {showInstallGuide&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(25,22,30,.42)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:520,padding:'20px'}}>
+          <div style={{width:'100%',maxWidth:360,background:'#fff',border:'1px solid #E7DDEA',borderRadius:18,boxShadow:'0 20px 60px rgba(61,68,88,.22)',padding:'20px',color:'#3D4458'}}>
+            <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:600,fontSize:'1.05rem',marginBottom:6}}>全画面で使う方法</div>
+            <div style={{fontSize:'.82rem',lineHeight:1.8,color:'#667A8C',marginBottom:14}}>
+              ホーム画面に追加すると、Safariのアドレスバーが消えてアプリのように広く使えます。
+            </div>
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.82rem',lineHeight:1.9,color:'#3D4458'}}>
+              1. Safari下部の共有ボタンをタップ<br/>
+              2. 「ホーム画面に追加」を選択<br/>
+              3. 「追加」をタップ
+            </div>
+            <button onClick={()=>setShowInstallGuide(false)} style={{marginTop:16,width:'100%',padding:'12px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:10,fontFamily:'inherit',fontSize:'.86rem',fontWeight:600,cursor:'pointer'}}>OK</button>
           </div>
         </div>
       )}
