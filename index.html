@@ -2,12 +2,14 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>palette story.</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
-html,body{height:100%;overflow:hidden;background:#F7F3FA;}
-#root{height:100%;}
+html,body{height:100%;height:100dvh;overflow:hidden;background:#F7F3FA;}
+#root{height:100%;height:100dvh;}
 </style>
 </head>
 <body>
@@ -16,8 +18,7 @@ html,body{height:100%;overflow:hidden;background:#F7F3FA;}
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
 <script>
-// Reactのフックをグローバルに展開
-const {useState,useRef,useEffect,useCallback,useMemo} = React;
+const {useState,useRef,useEffect,useCallback,useMemo}=React;
 </script>
 <script type="text/babel">
 const FONTS = [
@@ -728,14 +729,13 @@ function PaletteStory() {
 
   // ── save (iPhone Safari対応) ──
   const save=()=>{
-    // 保存用canvasに実寸(1080x1920)で描画
+    // 保存用canvasに1080x1920で再描画
     const sv=document.createElement('canvas');
     sv.width=OUT_W; sv.height=OUT_H;
     const ctx=sv.getContext('2d');
     ctx.scale(SCALE,SCALE);
-
-    // プレビューcanvasの内容をそのままスケール
-    ctx.drawImage(previewRef.current,0,0,CW,CH,0,0,CW,CH);
+    // プレビューcanvasから描画（2倍スケールのcanvasなので調整）
+    ctx.drawImage(previewRef.current,0,0,CW*2,CH*2,0,0,CW,CH);
 
     const dataUrl=sv.toDataURL('image/png');
     const win=window.open('','_blank');
@@ -1022,10 +1022,10 @@ function PaletteStory() {
         )}
 
         {/* タブ一覧 */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',borderTop:'1px solid rgba(255,255,255,.07)'}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',borderTop:'1px solid #E7DDEA',paddingBottom:'env(safe-area-inset-bottom, 8px)'}}>
           {TABS.map(({id,label,sub,done})=>(
             <button key={id} onClick={()=>setTab(tab===id?null:id)}
-              style={{padding:'10px 0 10px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:2,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`,marginTop:-1}}>
+              style={{padding:'12px 0 10px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:2,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`,marginTop:-1}}>
               {done&&tab!==id&&<span style={{fontSize:'.42rem',color:'#C8A8C8',fontWeight:700,lineHeight:1}}>✓</span>}
               <span style={{fontSize:'.7rem',color:tab===id?'#3D4458':'#8A90A0',fontWeight:tab===id?600:400,letterSpacing:'.02em'}}>{label}</span>
               <span style={{fontSize:'.48rem',color:tab===id?'#8A90A0':'#B8B0C8',letterSpacing:'.02em'}}>{sub}</span>
@@ -1036,31 +1036,27 @@ function PaletteStory() {
 
       {/* Full Preview modal */}
       {showFullPreview&&(
-        <div style={{position:'fixed',inset:0,background:'#111',display:'flex',flexDirection:'column',zIndex:400}}
-          onClick={()=>setShowFullPreview(false)}>
-          <div style={{flexShrink:0,display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 20px'}}>
-            <span style={{color:'rgba(255,255,255,.5)',fontSize:'.65rem',letterSpacing:'.06em'}}>Full Preview <span style={{opacity:.6,fontSize:'.58rem'}}>完成プレビュー</span></span>
-            <button onClick={()=>setShowFullPreview(false)}
-              style={{padding:'6px 16px',background:'rgba(255,255,255,.12)',color:'#fff',border:'1px solid rgba(255,255,255,.2)',borderRadius:16,fontFamily:'inherit',fontSize:'.76rem',cursor:'pointer'}}>
-              Close ✕
-            </button>
-          </div>
-          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',padding:'0 12px 20px'}}
-            onClick={e=>e.stopPropagation()}>
+        <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',zIndex:400}}>
+          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',padding:'16px 12px 8px'}}>
             <canvas
-              width={CW} height={CH}
+              width={CW*2} height={CH*2}
               ref={el=>{
                 if(!el||!previewRef.current)return;
                 requestAnimationFrame(()=>{
                   if(!previewRef.current)return;
-                  // previewのcanvasを等倍でコピー（ぼやけない）
-                  el.width=CW;el.height=CH;
-                  el.style.width='';el.style.height='';
-                  el.getContext('2d').drawImage(previewRef.current,0,0,CW,CH);
+                  el.width=CW*2;el.height=CH*2;
+                  const ctx=el.getContext('2d');
+                  ctx.drawImage(previewRef.current,0,0,CW*2,CH*2);
                 });
               }}
-              style={{maxWidth:'100%',maxHeight:'100%',aspectRatio:'9/16',display:'block',boxShadow:'0 0 40px rgba(0,0,0,.5)'}}
+              style={{maxWidth:'100%',maxHeight:'100%',aspectRatio:'9/16',display:'block',boxShadow:'0 0 30px rgba(0,0,0,.6)'}}
             />
+          </div>
+          <div style={{flexShrink:0,padding:'12px 20px 40px',display:'flex',justifyContent:'center'}}>
+            <button onClick={()=>setShowFullPreview(false)}
+              style={{padding:'14px 48px',background:'#fff',color:'#3D4458',border:'none',borderRadius:30,fontFamily:'inherit',fontSize:'1rem',fontWeight:600,cursor:'pointer',boxShadow:'0 2px 12px rgba(0,0,0,.3)'}}>
+              ✕ 閉じる
+            </button>
           </div>
         </div>
       )}
@@ -1093,9 +1089,8 @@ function PaletteStory() {
   );
 }
 
-
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(<PaletteStory />);
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(<PaletteStory/>);
 </script>
 </body>
 </html>
