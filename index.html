@@ -945,12 +945,6 @@ function PaletteStory() {
                                 {h.colors.map(hex=>(<div key={hex} style={{flex:1,background:hex}}/>))}
                               </div>
                             </button>
-                          ))}?'rgba(200,168,200,.2)':'rgba(255,255,255,.05)',border:`1px solid ${JSON.stringify(h.colors)===JSON.stringify(colors)?'rgba(200,168,200,.4)':'rgba(255,255,255,.08)'}`,borderRadius:8,cursor:'pointer',width:'100%'}}>
-                              <span style={{fontSize:'.5rem',color:'#B8B0C8',flexShrink:0,width:12}}>#{i+1}</span>
-                              {h.colors.map(hex=>(
-                                <div key={hex} style={{flex:1,height:18,background:hex}}/>
-                              ))}
-                            </button>
                           ))}
                         </div>
                       </div>
