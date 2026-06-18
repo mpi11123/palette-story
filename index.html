@@ -907,10 +907,12 @@ function PaletteStory() {
                   <div style={{paddingTop:8,textAlign:'center',color:'#8A90A0',fontSize:'.78rem'}}>先に写真を選択してください</div>
                 ):(
                   <>
-                    <PBtn onClick={doExtract} style={{marginBottom:7}}>色を抽出する</PBtn>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+                      <PBtn onClick={doExtract} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.78rem'}}>色を抽出する</PBtn>
+                      <SBtn onClick={doRetry} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.78rem'}}>別の3色 {strategy>0?`#${strategy}`:''}</SBtn>
+                    </div>
                     {colors.length>0&&(
                       <>
-                        <SBtn onClick={doRetry} style={{marginBottom:colorHistory.length>1?8:12}}>別の3色を試す {strategy>0?`#${strategy}`:''}</SBtn>
                     {colorHistory.length>1&&(
                       <div style={{marginBottom:12}}>
                         <div style={{fontSize:'.52rem',letterSpacing:'.1em',color:'#8A90A0',textTransform:'uppercase',marginBottom:6}}>履歴 — タップで選択</div>
