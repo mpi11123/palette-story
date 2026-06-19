@@ -424,6 +424,11 @@ function PaletteStory() {
   const [tab,      setTab]      = useState('photo');
   const [showFullPreview,setShowFullPreview]=useState(false);
   const [showSave,setShowSave]=useState(null);
+  const [showGallery,setShowGallery]=useState(true); // 起動時はギャラリー表示
+  const [gallery,setGallery]=useState(()=>{
+    try{const g=localStorage.getItem('ps_gallery');return g?JSON.parse(g):[];}
+    catch{return [];}
+  });
   const [showHowTo,setShowHowTo]=useState(false);
   const viewTransform=useRef({scale:1,x:0,y:0,lastDist:0,lastX:0,lastY:0,pinching:false,dragging:false});
   const [viewScale,setViewScale]=useState(1);
@@ -451,7 +456,8 @@ function PaletteStory() {
       i.onload=()=>{
         setImg(i);
         setColors([]); setStrategy(0); setFinalCrop(null); setCrop(null);
-        setFitMode('contain'); setShowCrop(false);
+        setFitMode('contain');
+        setCropImg(i); setShowCrop(true); // 写真選択後に自動でトリミング画面を開く
         // ピクセル抽出を同時実行
         // 200x200で高解像度サンプリング（色情報を保持）
         const hc=hiddenRef.current, hx=hc.getContext('2d');
@@ -741,7 +747,19 @@ function PaletteStory() {
     ctx.scale(SCALE,SCALE);
     // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
     ctx.drawImage(previewRef.current,0,0,CW*2,CH*2,0,0,CW,CH);
-    setShowSave(sv.toDataURL('image/png'));
+    const dataUrl = sv.toDataURL('image/png');
+    setShowSave(dataUrl);
+    // ギャラリーに保存（サムネイル用に小さく）
+    const thumb = document.createElement('canvas');
+    thumb.width=108;thumb.height=192;
+    thumb.getContext('2d').drawImage(sv,0,0,OUT_W,OUT_H,0,0,108,192);
+    const thumbUrl = thumb.toDataURL('image/jpeg',0.7);
+    const entry = {id:Date.now(),date:new Date().toLocaleDateString('ja-JP'),dataUrl,thumbUrl};
+    setGallery(prev=>{
+      const next=[entry,...prev].slice(0,24); // 最大24件
+      try{localStorage.setItem('ps_gallery',JSON.stringify(next));}catch{}
+      return next;
+    });
   };
 
 
@@ -767,6 +785,45 @@ function PaletteStory() {
     {id:'title',label:'Title',sub:'タイトル',done:titleTxt.trim().length>0},
     {id:'body',label:'Body',sub:'本文',done:bodyTxt.trim().length>0},
   ];
+
+  // ── ギャラリー画面 ──
+  if (showGallery) return (
+    <div style={{background:'#F7F3FA',fontFamily:"'DM Sans','Plus Jakarta Sans',sans-serif",height:'100vh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'16px 20px 12px',background:'#fff',borderBottom:'1px solid #E7DDEA',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+        <div>
+          <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:'1.1rem',color:'#3D4458'}}>palette story<span style={{color:'#C8A8C8'}}>.</span></span>
+          <div style={{fontSize:'.58rem',color:'#B8B0C8',letterSpacing:'.08em'}}>create a story from your colors</div>
+        </div>
+        <button onClick={()=>setShowGallery(false)}
+          style={{padding:'10px 20px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
+          ＋ 新しく作る
+        </button>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:'16px'}}>
+        {gallery.length===0?(
+          <div style={{textAlign:'center',paddingTop:60,color:'#B8B0C8'}}>
+            <div style={{fontSize:'3rem',marginBottom:12}}>🖼</div>
+            <div style={{fontSize:'.9rem',marginBottom:6}}>まだ作品がありません</div>
+            <div style={{fontSize:'.76rem'}}>「＋ 新しく作る」から始めよう</div>
+          </div>
+        ):(
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+            {gallery.map(item=>(
+              <div key={item.id} style={{position:'relative',cursor:'pointer'}}
+                onClick={()=>{
+                  // 大きく表示
+                  const w=window.open('','_blank');
+                  if(w){w.document.write(`<!DOCTYPE html><html><head><title>palette story</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;}img{max-width:100%;max-height:85vh;object-fit:contain;}p{color:rgba(255,255,255,.5);font-size:13px;font-family:sans-serif;}</style></head><body><img src="${item.dataUrl}"/><p>${item.date} — 長押しして保存</p></body></html>`);w.document.close();}
+                }}>
+                <img src={item.thumbUrl} style={{width:'100%',aspectRatio:'9/16',objectFit:'cover',borderRadius:8,display:'block'}}/>
+                <div style={{position:'absolute',bottom:0,left:0,right:0,background:'linear-gradient(transparent,rgba(0,0,0,.5))',borderRadius:'0 0 8px 8px',padding:'12px 4px 4px',fontSize:'.48rem',color:'rgba(255,255,255,.8)',textAlign:'center'}}>{item.date}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return(
     <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:'100vh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
@@ -831,9 +888,13 @@ function PaletteStory() {
             palette story<span style={{color:'#C8A8C8'}}>.</span>
           </span>
           <div style={{display:'flex',gap:7,pointerEvents:'auto'}}>
-            <button onClick={()=>setShowHowTo(true)}
+            <button onClick={(e)=>{e.stopPropagation();setShowHowTo(true);}}
               style={{padding:'5px 10px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.76rem',fontWeight:500,cursor:'pointer'}}>
               💡
+            </button>
+            <button onClick={(e)=>{e.stopPropagation();if(window.confirm('リセットしますか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});}}}
+              style={{padding:'5px 10px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.76rem',fontWeight:500,cursor:'pointer'}}>
+              ↺
             </button>
             {img&&(
               <button onClick={()=>setShowFullPreview(true)}
@@ -862,30 +923,24 @@ function PaletteStory() {
             {tab==='photo'&&(
               <div>
                 {!img?(
-                  <div style={{paddingTop:8,textAlign:'center',color:'rgba(255,255,255,.35)',fontSize:'.8rem',letterSpacing:'.04em'}}>
-                    プレビューをタップして写真を追加
+                  <div style={{paddingTop:8,textAlign:'center',color:'#8A90A0',fontSize:'.78rem'}}>
+                    ＋ をタップして写真を追加
                   </div>
                 ):(
                   <>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:10}}>
-                      <SBtn onClick={()=>fileRef.current.click()} full={false} style={{width:'100%'}}>Change</SBtn>
-                      <SBtn onClick={()=>{setShowCrop(true);setFitMode('trim');}} full={false} style={{width:'100%'}}>Trim ✂️</SBtn>
-                    </div>
-                    {finalCrop&&<SBtn onClick={()=>{setFitMode('contain');setFinalCrop(null);}} style={{marginBottom:8}}>✕ Remove Trim</SBtn>}
-                    <Lbl t="Display" sub="表示方法"/>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:7,marginBottom:10}}>
-                      <SBtn active={fitMode==='contain'} onClick={()=>{setFitMode('contain');setFinalCrop(null);}}>そのまま</SBtn>
-                      <SBtn active={fitMode==='trim'&&!!finalCrop} onClick={()=>setShowCrop(true)}>トリミング</SBtn>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:8}}>
+                      <SBtn onClick={()=>fileRef.current.click()} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>写真を変える</SBtn>
+                      <SBtn onClick={()=>{setCropImg(img);setShowCrop(true);}} active={fitMode==='trim'&&!!finalCrop} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>トリミング</SBtn>
+                      <SBtn onClick={()=>{setFitMode('contain');setFinalCrop(null);}} active={fitMode==='contain'} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>そのまま</SBtn>
                     </div>
                     <Lbl t="Size" sub="写真サイズ"/>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:7}}>
-                      {['S','M','L'].map(k=><SBtn key={k} active={photoSize===k} onClick={()=>setPhotoSize(k)}>{k==='S'?'Small':k==='M'?'Medium':'Large'}</SBtn>)}
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+                      {[['S','Small'],['M','Medium'],['L','Large']].map(([k,l])=><SBtn key={k} active={photoSize===k} onClick={()=>setPhotoSize(k)}>{l}</SBtn>)}
                     </div>
                   </>
                 )}
               </div>
             )}
-
             {tab==='color'&&(
               <div>
                 {!pixels.length?(
@@ -1068,14 +1123,18 @@ function PaletteStory() {
         <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}>
           <div style={{color:'rgba(255,255,255,.6)',fontSize:'.72rem',marginBottom:12,letterSpacing:'.06em'}}>長押しまたはダウンロードで保存</div>
           <img src={showSave} style={{maxWidth:'100%',maxHeight:'70vh',aspectRatio:'9/16',objectFit:'contain',boxShadow:'0 0 30px rgba(0,0,0,.5)'}} alt="palette story"/>
-          <div style={{display:'flex',gap:12,marginTop:20}}>
+          <div style={{display:'flex',gap:8,marginTop:20,flexWrap:'wrap',justifyContent:'center'}}>
             <a href={showSave} download="palette-story.png"
-              style={{padding:'14px 28px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:24,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer',textDecoration:'none',display:'block'}}>
-              ↓ ダウンロード
+              style={{padding:'12px 20px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer',textDecoration:'none'}}>
+              ↓ 保存
             </a>
-            <button onClick={()=>setShowSave(null)}
-              style={{padding:'14px 28px',background:'#fff',color:'#3D4458',border:'none',borderRadius:24,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
-              ✕ 閉じる
+            <button onClick={()=>{setShowSave(null);setShowGallery(true);}}
+              style={{padding:'12px 20px',background:'#fff',color:'#3D4458',border:'1px solid #E7DDEA',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
+              🖼 ギャラリー
+            </button>
+            <button onClick={()=>{setShowSave(null);setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setTab('photo');}}
+              style={{padding:'12px 20px',background:'#3D4458',color:'#fff',border:'none',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
+              ↺ 最初から
             </button>
           </div>
         </div>
@@ -1103,10 +1162,13 @@ function PaletteStory() {
               タブをタップで編集パネルを開閉
             </div>
             <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>全画面で使う方法</div>
-            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:16}}>
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
               1. Safari下部の共有ボタン（↑）をタップ<br/>
               2. 「ホーム画面に追加」を選択<br/>
               3. 「追加」→ アプリとして使える！
+            </div>
+            <div style={{background:'#FFF8E7',border:'1px solid #F0E0C0',borderRadius:12,padding:'12px',fontSize:'.75rem',lineHeight:1.7,color:'#8A7A60',marginBottom:16}}>
+              ⚠️ 作品履歴はこのデバイスのSafariに保存されます。「Webサイトデータを消去」すると削除されます。
             </div>
             <button onClick={()=>setShowHowTo(false)}
               style={{width:'100%',padding:'12px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:12,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
@@ -1146,8 +1208,8 @@ function PaletteStory() {
       {showCrop&&img&&(
         <div style={{position:'fixed',inset:0,background:'#111',display:'flex',flexDirection:'column',zIndex:300,touchAction:'none'}}>
           <div style={{padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
-            <span style={{color:'#fff',fontFamily:"'Cormorant Garamond',serif",fontStyle:'italic',fontSize:'1.1rem'}}>Trim Photo</span>
-            <span style={{color:'rgba(255,255,255,.38)',fontSize:'.62rem',letterSpacing:'.07em'}}>DRAG · CORNERS TO RESIZE</span>
+            <span style={{color:'#fff',fontFamily:"'DM Sans','Plus Jakarta Sans',sans-serif",fontWeight:600,fontSize:'1rem'}}>トリミング</span>
+            <span style={{color:'rgba(255,255,255,.38)',fontSize:'.62rem',letterSpacing:'.07em'}}>角をドラッグしてサイズ変更</span>
           </div>
           <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',minHeight:0}}>
             <canvas ref={cropCvRef} style={{maxWidth:'100%',maxHeight:'100%',display:'block',touchAction:'none'}}/>
