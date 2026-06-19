@@ -432,7 +432,8 @@ function PaletteStory() {
   const [showHowTo,setShowHowTo]=useState(false);
   const viewTransform=useRef({scale:1,x:0,y:0,lastDist:0,lastX:0,lastY:0,pinching:false,dragging:false});
   const [viewScale,setViewScale]=useState(1);
-  const [viewOffset,setViewOffset]=useState({x:0,y:0}); // 保存用dataURL
+  const [viewOffset,setViewOffset]=useState({x:0,y:0});
+  const [photoRect,setPhotoRect]=useState(null); // canvas内の写真枠の位置（CSS座標） // 保存用dataURL
   // canvas直接編集用
   const [titlePos,setTitlePos]=useState({snap:'left',offsetY:0});   // snap: left|center|right
   const [bodyPos,setBodyPos]=useState({snap:'left',offsetY:20});
@@ -848,7 +849,7 @@ function PaletteStory() {
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'#EDE8F2'}}
-        onClick={()=>{if(!img){fileRef.current.click();}else if(tab&&!viewTransform.current.dragging){setTab(null);}}}>
+        onClick={()=>{if(img&&tab&&!viewTransform.current.dragging){setTab(null);}}}>
 
         <canvas ref={previewRef} width={CW*2} height={CH*2}
           style={{height:'100%',width:'auto',aspectRatio:'9/16',display:'block',maxWidth:'100%',touchAction:'none',
@@ -884,6 +885,23 @@ function PaletteStory() {
           onTouchEnd={()=>{const vt=viewTransform.current;vt.pinching=false;setTimeout(()=>{vt.dragging=false;},150);}}
           onDoubleClick={()=>{const vt=viewTransform.current;vt.scale=1;vt.x=0;vt.y=0;setViewScale(1);setViewOffset({x:0,y:0});}}
         />
+        {/* 写真枠の上にだけ透明ボタンを重ねる */}
+        {!img&&photoRect&&(
+          <button
+            onClick={(e)=>{e.stopPropagation();fileRef.current.click();}}
+            style={{
+              position:'absolute',
+              left: `calc(50% - ${photoRect.canvasW/2}px + ${photoRect.left}px)`,
+              top: `${photoRect.top}px`,
+              width: `${photoRect.width}px`,
+              height: `${photoRect.height}px`,
+              background:'transparent',
+              border:'none',
+              cursor:'pointer',
+              padding:0,
+            }}
+          />
+        )}
 
 
 
@@ -920,23 +938,18 @@ function PaletteStory() {
       </div>
 
       {/* ── Bottom Tab Bar + Sheet ── */}
-      <div style={{flexShrink:0,background:'#FFFFFF',borderTop:'1px solid #E7DDEA'}}>
+      <div style={{flexShrink:0,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',position:'relative'}}>
 
-        {/* タブ一覧（先に配置して常に見える） */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)'}}>
-          {TABS.map(({id,label,sub,done})=>(
-            <button key={id} onClick={()=>setTab(tab===id?null:id)}
-              style={{padding:'10px 0 8px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:2,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`}}>
-              {done&&tab!==id&&<span style={{fontSize:'.42rem',color:'#C8A8C8',fontWeight:700,lineHeight:1}}>✓</span>}
-              <span style={{fontSize:'.7rem',color:tab===id?'#3D4458':'#8A90A0',fontWeight:tab===id?600:400}}>{label}</span>
-              <span style={{fontSize:'.48rem',color:tab===id?'#8A90A0':'#B8B0C8'}}>{sub}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* シートパネル（タブの上に展開） */}
+        {/* シートパネル：タブバーの上にabsoluteで展開 */}
         {tab&&(
-          <div style={{padding:'6px 18px 16px',overflowY:'auto',maxHeight:'36vh',borderTop:'1px solid #E7DDEA'}}>
+          <div style={{
+            position:'absolute',bottom:'100%',left:0,right:0,
+            background:'#FFFFFF',borderTop:'1px solid #E7DDEA',
+            borderBottom:'1px solid #E7DDEA',
+            overflowY:'auto',maxHeight:'40vh',
+            padding:'6px 18px 12px',
+            zIndex:10,
+          }}>
             <div style={{width:32,height:3,background:'#D9C7E3',borderRadius:2,margin:'0 auto 12px'}}/>
             {tab==='photo'&&(
               <div>
@@ -1123,6 +1136,18 @@ function PaletteStory() {
 
           </div>
         )}
+
+        {/* タブ一覧（常に表示） */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)'}}>
+          {TABS.map(({id,label,sub,done})=>(
+            <button key={id} onClick={()=>setTab(tab===id?null:id)}
+              style={{padding:'10px 0 8px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:2,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`}}>
+              {done&&tab!==id&&<span style={{fontSize:'.42rem',color:'#C8A8C8',fontWeight:700,lineHeight:1}}>✓</span>}
+              <span style={{fontSize:'.7rem',color:tab===id?'#3D4458':'#8A90A0',fontWeight:tab===id?600:400}}>{label}</span>
+              <span style={{fontSize:'.48rem',color:tab===id?'#8A90A0':'#B8B0C8'}}>{sub}</span>
+            </button>
+          ))}
+        </div>
       </div>
       {/* How to モーダル */}
       {showHowTo&&(
