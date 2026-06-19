@@ -457,7 +457,8 @@ function PaletteStory() {
         setImg(i);
         setColors([]); setStrategy(0); setFinalCrop(null); setCrop(null);
         setFitMode('contain');
-        setCropImg(i); setShowCrop(true); // 写真選択後に自動でトリミング画面を開く
+        // 写真選択後に自動でトリミング画面を開く
+        setTimeout(()=>{ setCropImg(i); setShowCrop(true); }, 50);
         // ピクセル抽出を同時実行
         // 200x200で高解像度サンプリング（色情報を保持）
         const hc=hiddenRef.current, hx=hc.getContext('2d');
@@ -806,9 +807,8 @@ function PaletteStory() {
       </div>
       <div style={{flex:1,overflowY:'auto',padding:'16px'}}>
         {gallery.length===0?(
-          <div style={{textAlign:'center',paddingTop:60,color:'#B8B0C8'}}>
-            <div style={{fontSize:'3rem',marginBottom:12}}>▤</div>
-            <div style={{fontSize:'.9rem',marginBottom:6}}>まだ作品がありません</div>
+          <div style={{textAlign:'center',paddingTop:80,color:'#B8B0C8'}}>
+            <div style={{fontSize:'.9rem',marginBottom:8,color:'#8A90A0'}}>まだ作品がありません</div>
             <div style={{fontSize:'.76rem'}}>「＋ 新しく作る」から始めよう</div>
           </div>
         ):(
@@ -933,7 +933,7 @@ function PaletteStory() {
 
         {/* シートパネル */}
         {tab&&(
-          <div style={{padding:'6px 18px 16px',overflowY:'auto',maxHeight:'44vh',borderBottom:'1px solid #E7DDEA'}}>
+          <div style={{padding:'6px 18px 16px',overflowY:'auto',maxHeight:'36vh',borderBottom:'1px solid #E7DDEA'}}>
             <div style={{width:32,height:3,background:'#D9C7E3',borderRadius:2,margin:'0 auto 14px'}}/>
 
             {tab==='photo'&&(
