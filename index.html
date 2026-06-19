@@ -922,11 +922,22 @@ function PaletteStory() {
       {/* ── Bottom Tab Bar + Sheet ── */}
       <div style={{flexShrink:0,background:'#FFFFFF',borderTop:'1px solid #E7DDEA'}}>
 
-        {/* シートパネル */}
-        {tab&&(
-          <div style={{padding:'6px 18px 16px',overflowY:'auto',maxHeight:'36vh',borderBottom:'1px solid #E7DDEA'}}>
-            <div style={{width:32,height:3,background:'#D9C7E3',borderRadius:2,margin:'0 auto 14px'}}/>
+        {/* タブ一覧（先に配置して常に見える） */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)'}}>
+          {TABS.map(({id,label,sub,done})=>(
+            <button key={id} onClick={()=>setTab(tab===id?null:id)}
+              style={{padding:'10px 0 8px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:2,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`}}>
+              {done&&tab!==id&&<span style={{fontSize:'.42rem',color:'#C8A8C8',fontWeight:700,lineHeight:1}}>✓</span>}
+              <span style={{fontSize:'.7rem',color:tab===id?'#3D4458':'#8A90A0',fontWeight:tab===id?600:400}}>{label}</span>
+              <span style={{fontSize:'.48rem',color:tab===id?'#8A90A0':'#B8B0C8'}}>{sub}</span>
+            </button>
+          ))}
+        </div>
 
+        {/* シートパネル（タブの上に展開） */}
+        {tab&&(
+          <div style={{padding:'6px 18px 16px',overflowY:'auto',maxHeight:'36vh',borderTop:'1px solid #E7DDEA'}}>
+            <div style={{width:32,height:3,background:'#D9C7E3',borderRadius:2,margin:'0 auto 12px'}}/>
             {tab==='photo'&&(
               <div>
                 {!img?(
@@ -1109,44 +1120,10 @@ function PaletteStory() {
                 )}
               </div>
             )}
+
           </div>
         )}
-
-        {/* タブ一覧 */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',borderTop:'1px solid #E7DDEA'}}>
-          {TABS.map(({id,label,sub,done})=>(
-            <button key={id} onClick={()=>setTab(tab===id?null:id)}
-              style={{padding:'12px 0 10px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:2,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`,marginTop:-1}}>
-              {done&&tab!==id&&<span style={{fontSize:'.42rem',color:'#C8A8C8',fontWeight:700,lineHeight:1}}>✓</span>}
-              <span style={{fontSize:'.7rem',color:tab===id?'#3D4458':'#8A90A0',fontWeight:tab===id?600:400,letterSpacing:'.02em'}}>{label}</span>
-              <span style={{fontSize:'.48rem',color:tab===id?'#8A90A0':'#B8B0C8',letterSpacing:'.02em'}}>{sub}</span>
-            </button>
-          ))}
-        </div>
       </div>
-
-      {/* 保存モーダル */}
-      {showSave&&(
-        <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}>
-          <div style={{color:'rgba(255,255,255,.6)',fontSize:'.72rem',marginBottom:12,letterSpacing:'.06em'}}>長押しまたはダウンロードで保存</div>
-          <img src={showSave} style={{maxWidth:'100%',maxHeight:'70vh',aspectRatio:'9/16',objectFit:'contain',boxShadow:'0 0 30px rgba(0,0,0,.5)'}} alt="palette story"/>
-          <div style={{display:'flex',gap:8,marginTop:20,flexWrap:'wrap',justifyContent:'center'}}>
-            <a href={showSave} download="palette-story.png"
-              style={{padding:'12px 20px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer',textDecoration:'none'}}>
-              ↓ 保存
-            </a>
-            <button onClick={()=>{setShowSave(null);setShowGallery(true);}}
-              style={{padding:'12px 20px',background:'#fff',color:'#3D4458',border:'1px solid #E7DDEA',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
-               ギャラリー
-            </button>
-            <button onClick={()=>{setShowSave(null);setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setTab('photo');}}
-              style={{padding:'12px 20px',background:'#3D4458',color:'#fff',border:'none',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
-              ↺ 最初から
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* How to モーダル */}
       {showHowTo&&(
         <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}
