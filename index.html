@@ -307,18 +307,19 @@ function colorName(hex) {
 const INK='#667A8C', CARD_BG='#FAFAF8';
 
 function drawMinimalChip(ctx, x, y, colors) {
-  const CS=20,GAP=5,PD=9,LH=22;
+  const CS=22,GAP=6,PD=10,LH=26;
   const W=CS*3+GAP*2+PD*2, H=CS+LH+PD*2;
-  ctx.save();ctx.shadowColor='rgba(0,0,0,.1)';ctx.shadowBlur=6;ctx.shadowOffsetY=2;
+  ctx.save();ctx.shadowColor='rgba(75,55,92,.12)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
   ctx.fillStyle=CARD_BG;ctx.fillRect(x,y,W,H);ctx.restore();
-  ctx.strokeStyle='rgba(0,0,0,.07)';ctx.lineWidth=.6;ctx.strokeRect(x,y,W,H);
+  ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.7;ctx.strokeRect(x,y,W,H);
   colors.forEach((hex,i)=>{
     const cx=x+PD+i*(CS+GAP);
     ctx.fillStyle=hex;ctx.fillRect(cx,y+PD,CS,CS);
-    ctx.strokeStyle='rgba(0,0,0,.06)';ctx.lineWidth=.4;ctx.strokeRect(cx,y+PD,CS,CS);
-    ctx.fillStyle=INK;ctx.font=`4.5px 'Courier New',monospace`;
+    ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(cx,y+PD,CS,CS);
+    ctx.fillStyle=INK;ctx.globalAlpha=.95;ctx.font=`800 5.8px 'Courier Prime','Courier New',monospace`;
     ctx.textAlign='center';ctx.textBaseline='alphabetic';
-    ctx.fillText(hex.toUpperCase(),cx+CS/2,y+PD+CS+14);
+    ctx.fillText(hex.toUpperCase(),cx+CS/2,y+PD+CS+16);
+    ctx.globalAlpha=1;
   });
 }
 
@@ -333,54 +334,55 @@ function fitLabelText(text, maxChars=9) {
 }
 
 function drawPantoneCard(ctx, x, y, colors) {
-  const CW=60,CH=78,GAP=6;
-  const colorH=Math.round(CH*0.62), labelH=CH-colorH;
+  const CW=62,CH=84,GAP=6;
+  const colorH=Math.round(CH*0.60), labelH=CH-colorH;
   const fitName=(name)=>{
-    if(name.length<=7) return [name];
+    if(name.length<=8) return [name];
     if(name==='TERRACOTTA') return ['TERRA','COTTA'];
     if(name==='PERIWINKLE') return ['PERI','WINKLE'];
     if(name==='CHARCOAL') return ['CHAR','COAL'];
-    return [name.slice(0,7)];
+    return [name.slice(0,8)];
   };
   colors.forEach((hex,i)=>{
     const cx=x+i*(CW+GAP),cy=y;
-    ctx.save();ctx.shadowColor='rgba(0,0,0,.10)';ctx.shadowBlur=7;ctx.shadowOffsetY=2;
+    ctx.save();ctx.shadowColor='rgba(75,55,92,.14)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
     ctx.fillStyle=CARD_BG;ctx.fillRect(cx,cy,CW,CH);ctx.restore();
     ctx.fillStyle=hex;ctx.fillRect(cx,cy,CW,colorH);
     ctx.fillStyle=CARD_BG;ctx.fillRect(cx,cy+colorH,CW,labelH);
-    ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.55;ctx.strokeRect(cx,cy,CW,CH);
+    ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.6;ctx.strokeRect(cx,cy,CW,CH);
 
     const lines=fitName(colorName(hex));
-    ctx.fillStyle=INK;ctx.font=`800 6.2px 'Plus Jakarta Sans',sans-serif`;
+    ctx.fillStyle=INK;ctx.font=`900 6.6px 'Plus Jakarta Sans',sans-serif`;
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    lines.slice(0,2).forEach((line,li)=>ctx.fillText(line,cx+4,cy+colorH+8+li*7));
+    lines.slice(0,2).forEach((line,li)=>ctx.fillText(line,cx+5,cy+colorH+9+li*7.5));
 
-    ctx.fillStyle=INK;ctx.globalAlpha=.9;ctx.font=`800 6.4px 'Courier Prime','Courier New',monospace`;
-    ctx.fillText(hex.toUpperCase(),cx+4,cy+CH-5);
+    ctx.fillStyle=INK;ctx.globalAlpha=.98;ctx.font=`900 7px 'Courier Prime','Courier New',monospace`;
+    ctx.fillText(hex.toUpperCase(),cx+5,cy+CH-5);
     ctx.globalAlpha=1;
   });
 }
 
 function drawSlimLabel(ctx, x, y, colors) {
-  const SW=12,PD=8,rowH=20,W=160,H=rowH*3+PD*2;
-  ctx.save();ctx.shadowColor='rgba(0,0,0,.1)';ctx.shadowBlur=6;ctx.shadowOffsetY=2;
+  const SW=15,PD=9,rowH=24,W=178,H=rowH*3+PD*2;
+  ctx.save();ctx.shadowColor='rgba(75,55,92,.14)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
   ctx.fillStyle=CARD_BG;ctx.fillRect(x,y,W,H);ctx.restore();
-  ctx.strokeStyle='rgba(0,0,0,.07)';ctx.lineWidth=.5;ctx.strokeRect(x,y,W,H);
+  ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.6;ctx.strokeRect(x,y,W,H);
   colors.forEach((hex,i)=>{
     const ry=y+PD+i*rowH;
     ctx.fillStyle=hex;ctx.fillRect(x+PD,ry+4,SW,SW);
-    ctx.strokeStyle='rgba(0,0,0,.06)';ctx.lineWidth=.4;ctx.strokeRect(x+PD,ry+4,SW,SW);
-    ctx.fillStyle=INK;ctx.font=`5px sans-serif`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    ctx.fillText(colorName(hex),x+PD+SW+6,ry+13);
-    ctx.globalAlpha=.65;ctx.font=`4.5px 'Courier New',monospace`;ctx.textAlign='right';
-    ctx.fillText(hex.toUpperCase(),x+W-PD,ry+13);ctx.globalAlpha=1;
+    ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(x+PD,ry+4,SW,SW);
+    ctx.fillStyle=INK;ctx.font=`900 6.4px 'Plus Jakarta Sans',sans-serif`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    const nm=colorName(hex);
+    ctx.fillText(nm.length>11?nm.slice(0,11):nm,x+PD+SW+7,ry+14);
+    ctx.globalAlpha=.98;ctx.font=`900 6.2px 'Courier Prime','Courier New',monospace`;ctx.textAlign='right';
+    ctx.fillText(hex.toUpperCase(),x+W-PD,ry+14);ctx.globalAlpha=1;
   });
 }
 
 function getCardDims(style) {
-  if(style==='minimal') return{w:20*3+5*2+9*2,h:20+22+9*2};
-  if(style==='pantone') return{w:56*3+5*2,h:80};
-  return{w:160,h:20*3+8*2};
+  if(style==='minimal') return{w:22*3+6*2+10*2,h:22+26+10*2};
+  if(style==='pantone') return{w:62*3+6*2,h:84};
+  return{w:178,h:24*3+9*2};
 }
 
 function wrapText(ctx, text, maxW) {
@@ -446,6 +448,7 @@ function PaletteStory() {
     catch{return [];}
   });
   const [showHowTo,setShowHowTo]=useState(false);
+  const [galleryPreview,setGalleryPreview]=useState(null);
   const viewTransform=useRef({scale:1,x:0,y:0,lastDist:0,lastX:0,lastY:0,pinching:false,dragging:false});
   const [viewScale,setViewScale]=useState(1);
   const [viewOffset,setViewOffset]=useState({x:0,y:0});
@@ -517,38 +520,12 @@ function PaletteStory() {
     });
   };
   const doExtract=()=>{
-    if(!pixels.length)return;
     setStrategy(0);
-
-    const first=pick3(pixels,0);
-    const firstBgs=first.map(hex=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return soften(r,g,b);});
-    setColors(first); setBgSugs(firstBgs); setSelBg(firstBgs[0]); setBgColor(firstBgs[0]);
-
-    // 初回抽出で12枠分を作る（現在色＋履歴11）
-    const seen=new Set([first.join(',')]);
-    const hist=[];
-    for(let n=1;n<=48 && hist.length<11;n++){
-      const c=pick3(pixels,n);
-      const key=c.join(',');
-      if(seen.has(key)) continue;
-      const tooSimilar=hist.some(h=>h.colors.every((hc,i)=>{
-        const a=[parseInt(hc.slice(1,3),16),parseInt(hc.slice(3,5),16),parseInt(hc.slice(5,7),16)];
-        const b=[parseInt(c[i].slice(1,3),16),parseInt(c[i].slice(3,5),16),parseInt(c[i].slice(5,7),16)];
-        return Math.abs(a[0]-b[0])<28&&Math.abs(a[1]-b[1])<28&&Math.abs(a[2]-b[2])<28;
-      }));
-      if(tooSimilar) continue;
-      seen.add(key);
-      const bgs=c.map(hex=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return soften(r,g,b);});
-      hist.push({key,colors:c,bg:bgs[0]});
-    }
-    setColorHistory(hist);
+    setColorHistory([]); // 新しい写真では履歴リセット
+    extract(0,pixels,false);
   };
   const doRetry=()=>{
-    const pool=[{key:colors.join(','),colors,bg:bgColor}, ...colorHistory];
-    const nextIndex=(strategy+1)%Math.max(1,pool.length);
-    const picked=pool[nextIndex];
-    setStrategy(nextIndex);
-    if(picked){setColors(picked.colors);setBgColor(picked.bg);setSelBg(picked.bg);}
+    const ns=strategy+1; setStrategy(ns); extract(ns);
   };
 
   // ── title suggestions (疑似AI生成) ──
@@ -789,6 +766,21 @@ function PaletteStory() {
     };
   },[showCrop,img,crop]);
 
+  const shareImage = async (dataUrl) => {
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'palette-story.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'palette story' });
+        return;
+      }
+    } catch (err) {
+      console.warn('share failed', err);
+    }
+    setShowSave(dataUrl);
+  };
+
   // ── save (iPhone Safari対応) ──
   const save=()=>{
     // 保存用canvasに1080x1920で再描画
@@ -799,7 +791,7 @@ function PaletteStory() {
     // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
     ctx.drawImage(previewRef.current,0,0,CW*2,CH*2,0,0,CW,CH);
     const dataUrl = sv.toDataURL('image/png');
-    setShowSave(dataUrl);
+    shareImage(dataUrl);
     // ギャラリーに保存（サムネイル用に小さく）
     const thumb = document.createElement('canvas');
     thumb.width=108;thumb.height=192;
@@ -817,10 +809,10 @@ function PaletteStory() {
   // ── UI helpers ──
   const C={bg:'#F7F3FA',ink:'#3D4458',sub:'#8A90A0',accent:'#C8A8C8',border:'#E7DDEA',panel:'#FFFFFF',accentSoft:'#E8DDF0',cardInk:'#667A8C'};
   const PBtn=({onClick,disabled,children,full=true,style={}})=>(
-    <button onClick={onClick} disabled={disabled} style={{padding:'12px 16px',background:disabled?'#E0D8E8':'#C8A8C8',color:disabled?'rgba(255,255,255,.6)':'#fff',border:'none',borderRadius:9,fontFamily:'inherit',fontSize:'.8rem',fontWeight:500,cursor:disabled?'default':'pointer',width:full?'100%':'auto',letterSpacing:'.03em',...style}}>{children}</button>
+    <button onClick={onClick} disabled={disabled} style={{padding:'10px 13px',background:disabled?'#E0D8E8':'#C8A8C8',color:disabled?'rgba(255,255,255,.6)':'#fff',border:'none',borderRadius:9,fontFamily:'inherit',fontSize:'.8rem',fontWeight:500,cursor:disabled?'default':'pointer',width:full?'100%':'auto',letterSpacing:'.03em',...style}}>{children}</button>
   );
   const SBtn=({onClick,active,children,full=true,style={}})=>(
-    <button onClick={onClick} style={{padding:'10px 12px',background:active?'#EEE5F5':'#fff',color:active?'#3D4458':C.cardInk,border:`1.5px solid ${active?'#D9C7E3':C.border}`,borderRadius:9,fontFamily:'inherit',fontSize:'.76rem',cursor:'pointer',width:full?'100%':'auto',transition:'all .12s',...style}}>{children}</button>
+    <button onClick={onClick} style={{padding:'8px 10px',background:active?'#EEE5F5':'#fff',color:active?'#3D4458':C.cardInk,border:`1.5px solid ${active?'#D9C7E3':C.border}`,borderRadius:9,fontFamily:'inherit',fontSize:'.66rem',cursor:'pointer',width:full?'100%':'auto',transition:'all .12s',...style}}>{children}</button>
   );
   const Lbl=({t,sub:s})=>(
     <div style={{marginBottom:7,marginTop:14,display:'flex',alignItems:'baseline',gap:6}}>
@@ -859,17 +851,13 @@ function PaletteStory() {
         {gallery.length===0?(
           <div style={{textAlign:'center',paddingTop:80,color:'#B8B0C8'}}>
             <div style={{fontSize:'.9rem',marginBottom:8,color:'#8A90A0'}}>まだ作品がありません</div>
-            <div style={{fontSize:'.76rem'}}>「＋ 新しく作る」から始めよう</div>
+            <div style={{fontSize:'.66rem'}}>「＋ 新しく作る」から始めよう</div>
           </div>
         ):(
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
             {gallery.map(item=>(
               <div key={item.id} style={{position:'relative',cursor:'pointer'}}
-                onClick={()=>{
-                  // 大きく表示
-                  const w=window.open('','_blank');
-                  if(w){w.document.write(`<!DOCTYPE html><html><head><title>palette story</title><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:12px;}img{max-width:100%;max-height:85vh;object-fit:contain;}p{color:rgba(255,255,255,.5);font-size:13px;font-family:sans-serif;}</style></head><body><img src="${item.dataUrl}"/><p>${item.date} — 長押しして保存</p></body></html>`);w.document.close();}
-                }}>
+                onClick={()=>setGalleryPreview(item)}>
                 <img src={item.thumbUrl} style={{width:'100%',aspectRatio:'9/16',objectFit:'cover',borderRadius:8,display:'block'}}/>
                 <div style={{position:'absolute',bottom:0,left:0,right:0,background:'linear-gradient(transparent,rgba(0,0,0,.5))',borderRadius:'0 0 8px 8px',padding:'12px 4px 4px',fontSize:'.48rem',color:'rgba(255,255,255,.8)',textAlign:'center'}}>{item.date}</div>
               </div>
@@ -877,6 +865,24 @@ function PaletteStory() {
           </div>
         )}
       </div>
+      {galleryPreview&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(17,17,17,.92)',zIndex:900,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'18px'}}>
+          <img src={galleryPreview.dataUrl} style={{maxWidth:'92%',maxHeight:'76vh',objectFit:'contain',borderRadius:10,boxShadow:'0 12px 40px rgba(0,0,0,.35)'}}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,width:'100%',maxWidth:360,marginTop:14}}>
+            <button onClick={()=>setGalleryPreview(null)} style={{padding:'11px',border:'none',borderRadius:12,background:'#fff',color:'#3D4458',fontFamily:'inherit',fontWeight:700}}>戻る</button>
+            <button onClick={()=>shareImage(galleryPreview.dataUrl)} style={{padding:'11px',border:'none',borderRadius:12,background:'#C8A8C8',color:'#fff',fontFamily:'inherit',fontWeight:700}}>保存</button>
+            <button onClick={()=>{
+              if(!window.confirm('この作品をギャラリーから削除しますか？')) return;
+              setGallery(prev=>{
+                const next=prev.filter(g=>g.id!==galleryPreview.id);
+                try{localStorage.setItem('ps_gallery',JSON.stringify(next));}catch{}
+                return next;
+              });
+              setGalleryPreview(null);
+            }} style={{padding:'11px',border:'none',borderRadius:12,background:'rgba(255,255,255,.18)',color:'#fff',fontFamily:'inherit',fontWeight:700}}>削除</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1000,32 +1006,32 @@ function PaletteStory() {
 
 
         {/* ロゴ＋アクション（上部オーバーレイ） */}
-        <div style={{position:'absolute',top:0,left:0,right:0,padding:'14px 16px',background:'linear-gradient(to bottom,rgba(247,243,250,.96),rgba(247,243,250,.35),transparent)',display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
-          <span style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:600,fontSize:'1rem',color:'#3D4458',letterSpacing:'.01em',opacity:.92}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,padding:'10px 14px',background:'linear-gradient(to bottom,rgba(247,243,250,.96),rgba(247,243,250,.35),transparent)',display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
+          <span style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:600,fontSize:'.95rem',color:'#3D4458',letterSpacing:'.01em',opacity:.92}}>
             palette story.
           </span>
           <div style={{display:'flex',gap:7,pointerEvents:'auto'}}>
             <button onClick={(e)=>{e.stopPropagation();setShowGallery(true);}}
-              style={{padding:'5px 12px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.76rem',fontWeight:500,cursor:'pointer'}}>
-              トップ
+              style={{padding:'6px 9px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:12,fontFamily:'inherit',fontSize:'.66rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1}}>
+              一覧
             </button>
             <button onClick={(e)=>{e.stopPropagation();setShowHowTo(true);}}
-              style={{padding:'5px 12px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.76rem',fontWeight:500,cursor:'pointer'}}>
+              style={{padding:'6px 9px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.76rem',fontWeight:500,cursor:'pointer'}}>
               💡
             </button>
             <button onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});}}}
-              style={{padding:'5px 12px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.76rem',fontWeight:500,cursor:'pointer'}}>
-              リセット
+              style={{padding:'6px 9px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.76rem',fontWeight:500,cursor:'pointer'}}>
+              Reset
             </button>
             {img&&(
               <button onClick={()=>setShowFullPreview(true)}
-                style={{padding:'5px 14px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.72rem',fontWeight:500,cursor:'pointer'}}>
+                style={{padding:'6px 10px',background:'rgba(255,255,255,.88)',color:'#3D4458',border:'none',borderRadius:12,fontFamily:'inherit',fontSize:'.66rem',fontWeight:700,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1}}>
                 Preview
               </button>
             )}
             {img&&colors.length>0&&(
               <button onClick={save}
-                style={{padding:'5px 14px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.7rem',fontWeight:500,cursor:'pointer'}}>
+                style={{padding:'6px 10px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:12,fontFamily:'inherit',fontSize:'.66rem',fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1}}>
                 Save
               </button>
             )}
@@ -1033,7 +1039,7 @@ function PaletteStory() {
         </div>
       </div>
 
-      <div style={{position:'fixed',left:0,right:0,bottom:0,height:'calc(env(safe-area-inset-bottom, 0px) + 92px)',background:'#FFFFFF',zIndex:70,pointerEvents:'none'}} />
+      <div style={{position:'fixed',left:0,right:0,bottom:0,height:'calc(env(safe-area-inset-bottom, 0px) + 78px)',background:'#FFFFFF',zIndex:70,pointerEvents:'none'}} />
 
       {/* ── Bottom Tab Bar + Sheet ── */}
       <div style={{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:'calc(env(safe-area-inset-bottom, 0px) + 4px)',width:'100%',maxWidth:480,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',position:'fixed',zIndex:80,boxShadow:'0 -10px 28px rgba(126,94,148,.13)'}}>
@@ -1054,7 +1060,7 @@ function PaletteStory() {
             {tab==='photo'&&(
               <div>
                 {!img?(
-                  <div style={{paddingTop:8,textAlign:'center',color:'#8A90A0',fontSize:'.78rem'}}>
+                  <div style={{paddingTop:8,textAlign:'center',color:'#8A90A0',fontSize:'.74rem'}}>
                     ＋ をタップして写真を追加
                   </div>
                 ):(
@@ -1075,12 +1081,12 @@ function PaletteStory() {
             {tab==='color'&&(
               <div>
                 {!pixels.length?(
-                  <div style={{paddingTop:8,textAlign:'center',color:'#8A90A0',fontSize:'.78rem'}}>先に写真を選択してください</div>
+                  <div style={{paddingTop:8,textAlign:'center',color:'#8A90A0',fontSize:'.74rem'}}>先に写真を選択してください</div>
                 ):(
                   <>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
-                      <PBtn onClick={doExtract} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.78rem'}}>色を抽出する</PBtn>
-                      <SBtn onClick={doRetry} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.78rem'}}>別の3色 {strategy>0?`#${strategy}`:''}</SBtn>
+                      <PBtn onClick={doExtract} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.74rem'}}>色を抽出する</PBtn>
+                      <SBtn onClick={doRetry} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.74rem'}}>別の3色 {strategy>0?`#${strategy}`:''}</SBtn>
                     </div>
                     {colors.length>0&&(
                       <>
@@ -1088,7 +1094,7 @@ function PaletteStory() {
                         <div style={{marginBottom:10}}>
                           <div style={{fontSize:'.52rem',letterSpacing:'.08em',color:'#8A90A0',textTransform:'uppercase',marginBottom:5}}>Colors & 履歴</div>
                           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:4}}>
-                            {[{key:colors.join(','),colors,bg:bgColor},...colorHistory].slice(0,12).map((h,i)=>(
+                            {colorHistory.slice(0,12).map((h,i)=>(
                               <button key={h.key||i} onClick={()=>{setColors(h.colors);setBgColor(h.bg);setSelBg(h.bg);}}
                                 style={{padding:0,background:'none',border:`2px solid ${h.colors.join(',')===colors.join(',')?'#C8A8C8':'transparent'}`,borderRadius:6,cursor:'pointer',overflow:'hidden',position:'relative',minHeight:26}}>
                                 <div style={{position:'absolute',top:1,left:2,fontSize:'.38rem',color:'rgba(0,0,0,.45)',fontWeight:800,lineHeight:1,zIndex:1}}>{String(i+1).padStart(3,'0')}</div>
@@ -1149,7 +1155,7 @@ function PaletteStory() {
                 <div style={{background:'#FBF7FD',borderRadius:13,padding:'10px',marginBottom:10,border:'1px solid #E8DDF0'}}>
                   <div style={{fontSize:'.54rem',letterSpacing:'.12em',textTransform:'uppercase',color:'#8A90A0',marginBottom:8}}>Title Ideas タイトル提案</div>
                   <div style={{display:'flex',gap:6,marginBottom:showSugg?8:0}}>
-                    <PBtn onClick={genSugg} style={{flex:1,padding:'10px 12px'}}>タイトルを提案</PBtn>
+                    <PBtn onClick={genSugg} style={{flex:1,padding:'8px 10px'}}>タイトルを提案</PBtn>
                     <button onClick={()=>setTitleLang(l=>l==='ja'?'en':'ja')}
                     style={{display:'grid',gridTemplateColumns:'1fr 1fr',alignItems:'center',borderRadius:999,overflow:'hidden',border:'1px solid #E8DDF0',background:'#F7F3FA',flexShrink:0,cursor:'pointer',fontFamily:'inherit',fontSize:'.68rem',fontWeight:700,padding:2,minWidth:72}}>
                     <span style={{padding:'7px 8px',borderRadius:999,textAlign:'center',background:titleLang==='ja'?'#C8A8C8':'transparent',color:titleLang==='ja'?'#fff':'#8A90A0',transition:'all .15s'}}>JP</span>
@@ -1170,7 +1176,7 @@ function PaletteStory() {
                     );
                   })
                   }
-                  <button onClick={genSugg} style={{display:'block',width:'100%',gridColumn:'1 / -1',padding:'7px',marginTop:2,background:'none',border:'none',fontSize:'.7rem',cursor:'pointer',fontFamily:'inherit',color:'#8A90A0',textAlign:'center'}}>もう一度</button>
+                  <button onClick={genSugg} style={{display:'block',width:'100%',gridColumn:'1 / -1',padding:'7px',marginTop:2,background:'none',border:'none',fontSize:'.66rem',cursor:'pointer',fontFamily:'inherit',color:'#8A90A0',textAlign:'center'}}>もう一度</button>
                 </div>
               )}
             </div>
@@ -1236,9 +1242,9 @@ function PaletteStory() {
         <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)'}}>
           {TABS.map(({id,label,sub,done})=>(
             <button key={id} onClick={()=>setTab(tab===id?null:id)}
-              style={{padding:'10px 0 8px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:2,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`}}>
+              style={{padding:'8px 0 7px',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:2,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`}}>
               {done&&tab!==id&&<span style={{fontSize:'.42rem',color:'#C8A8C8',fontWeight:700,lineHeight:1}}>✓</span>}
-              <span style={{fontSize:'.7rem',color:tab===id?'#3D4458':'#8A90A0',fontWeight:tab===id?600:400}}>{label}</span>
+              <span style={{fontSize:'.66rem',color:tab===id?'#3D4458':'#8A90A0',fontWeight:tab===id?600:400}}>{label}</span>
               <span style={{fontSize:'.48rem',color:tab===id?'#8A90A0':'#B8B0C8'}}>{sub}</span>
             </button>
           ))}
@@ -1251,7 +1257,7 @@ function PaletteStory() {
           <div style={{width:'100%',maxWidth:360,background:'#fff',borderRadius:20,padding:'24px',maxHeight:'80vh',overflowY:'auto'}}
             onClick={e=>e.stopPropagation()}>
             <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:700,fontSize:'1.05rem',color:'#3D4458',marginBottom:14}}>💡 How to use</div>
-            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
               <b style={{color:'#3D4458'}}> Photo</b> — 写真を選択<br/>
               <b style={{color:'#3D4458'}}> Color</b> — 色を抽出・背景色を選ぶ<br/>
               <b style={{color:'#3D4458'}}> Card</b> — カラーカードのスタイルを選ぶ<br/>
@@ -1260,13 +1266,13 @@ function PaletteStory() {
               <b style={{color:'#3D4458'}}> Save</b> — 画像を保存
             </div>
             <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>プレビューの操作</div>
-            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
               ピンチで拡大縮小、ドラッグで移動<br/>
               ダブルタップで元のサイズに戻る<br/>
               タブをタップで編集パネルを開閉
             </div>
             <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>全画面で使う方法</div>
-            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
               1. Safari下部の共有ボタン（↑）をタップ<br/>
               2. 「ホーム画面に追加」を選択<br/>
               3. 「追加」→ アプリとして使える！
