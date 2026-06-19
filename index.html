@@ -848,7 +848,7 @@ function PaletteStory() {
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'#EDE8F2'}}
-        onClick={()=>{if(img&&tab&&!viewTransform.current.dragging){setTab(null);}}}>
+        onClick={()=>{if(!img){fileRef.current.click();}else if(tab&&!viewTransform.current.dragging){setTab(null);}}}>
 
         <canvas ref={previewRef} width={CW*2} height={CH*2}
           style={{height:'100%',width:'auto',aspectRatio:'9/16',display:'block',maxWidth:'100%',touchAction:'none',
