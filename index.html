@@ -887,16 +887,7 @@ function PaletteStory() {
 
 
 
-        {/* 空状態のAdd Photoボタン（枠内のみクリック可） */}
-        {!img&&(
-          <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
-            <button onClick={(e)=>{e.stopPropagation();fileRef.current.click();}}
-              style={{pointerEvents:'auto',border:'2px dashed #C8A8C8',borderRadius:16,padding:'48px 56px',background:'rgba(255,255,255,.4)',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:10}}>
-              <span style={{fontSize:'2.2rem',color:'#C8A8C8',lineHeight:1}}>＋</span>
-              <span style={{fontSize:'.76rem',color:'#8A90A0',letterSpacing:'.08em',fontFamily:"'DM Sans',sans-serif"}}>Add Photo</span>
-            </button>
-          </div>
-        )}
+
 
         {/* ロゴ＋アクション（上部オーバーレイ） */}
         <div style={{position:'absolute',top:0,left:0,right:0,padding:'14px 16px',background:'linear-gradient(to bottom,rgba(247,243,250,.9),transparent)',display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
@@ -929,7 +920,7 @@ function PaletteStory() {
       </div>
 
       {/* ── Bottom Tab Bar + Sheet ── */}
-      <div style={{flexShrink:0,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',paddingBottom:16}}>
+      <div style={{flexShrink:0,background:'#FFFFFF',borderTop:'1px solid #E7DDEA'}}>
 
         {/* シートパネル */}
         {tab&&(
@@ -1146,7 +1137,7 @@ function PaletteStory() {
             </a>
             <button onClick={()=>{setShowSave(null);setShowGallery(true);}}
               style={{padding:'12px 20px',background:'#fff',color:'#3D4458',border:'1px solid #E7DDEA',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
-              ▤ ギャラリー
+               ギャラリー
             </button>
             <button onClick={()=>{setShowSave(null);setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setTab('photo');}}
               style={{padding:'12px 20px',background:'#3D4458',color:'#fff',border:'none',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
@@ -1164,12 +1155,12 @@ function PaletteStory() {
             onClick={e=>e.stopPropagation()}>
             <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:700,fontSize:'1.05rem',color:'#3D4458',marginBottom:14}}>💡 How to use</div>
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
-              <b style={{color:'#3D4458'}}>◈ Photo</b> — 写真を選択<br/>
-              <b style={{color:'#3D4458'}}>◉ Color</b> — 色を抽出・背景色を選ぶ<br/>
-              <b style={{color:'#3D4458'}}>◫ Card</b> — カラーカードのスタイルを選ぶ<br/>
-              <b style={{color:'#3D4458'}}>◐ Title</b> — タイトルを入力または提案から選ぶ<br/>
-              <b style={{color:'#3D4458'}}>◑ Body</b> — 本文・日付などを入力<br/>
-              <b style={{color:'#3D4458'}}>◱ Save</b> — 画像を保存
+              <b style={{color:'#3D4458'}}> Photo</b> — 写真を選択<br/>
+              <b style={{color:'#3D4458'}}> Color</b> — 色を抽出・背景色を選ぶ<br/>
+              <b style={{color:'#3D4458'}}> Card</b> — カラーカードのスタイルを選ぶ<br/>
+              <b style={{color:'#3D4458'}}> Title</b> — タイトルを入力または提案から選ぶ<br/>
+              <b style={{color:'#3D4458'}}> Body</b> — 本文・日付などを入力<br/>
+              <b style={{color:'#3D4458'}}> Save</b> — 画像を保存
             </div>
             <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>プレビューの操作</div>
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
