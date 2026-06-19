@@ -794,7 +794,12 @@ function PaletteStory() {
           <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:'1.1rem',color:'#3D4458'}}>palette story<span style={{color:'#C8A8C8'}}>.</span></span>
           <div style={{fontSize:'.58rem',color:'#B8B0C8',letterSpacing:'.08em'}}>create a story from your colors</div>
         </div>
-        <button onClick={()=>setShowGallery(false)}
+        <button onClick={()=>{
+            setShowGallery(false);
+            setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');
+            setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);
+            setTab('photo');
+          }}
           style={{padding:'10px 20px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
           ＋ 新しく作る
         </button>
@@ -802,7 +807,7 @@ function PaletteStory() {
       <div style={{flex:1,overflowY:'auto',padding:'16px'}}>
         {gallery.length===0?(
           <div style={{textAlign:'center',paddingTop:60,color:'#B8B0C8'}}>
-            <div style={{fontSize:'3rem',marginBottom:12}}>🖼</div>
+            <div style={{fontSize:'3rem',marginBottom:12}}>▤</div>
             <div style={{fontSize:'.9rem',marginBottom:6}}>まだ作品がありません</div>
             <div style={{fontSize:'.76rem'}}>「＋ 新しく作る」から始めよう</div>
           </div>
@@ -843,7 +848,7 @@ function PaletteStory() {
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'#EDE8F2'}}
-        onClick={()=>{if(!img)fileRef.current.click();}}>
+        onClick={()=>{if(img&&tab&&!viewTransform.current.dragging){setTab(null);}}}>
 
         <canvas ref={previewRef} width={CW*2} height={CH*2}
           style={{height:'100%',width:'auto',aspectRatio:'9/16',display:'block',maxWidth:'100%',touchAction:'none',
@@ -881,6 +886,17 @@ function PaletteStory() {
         />
 
 
+
+        {/* 空状態のAdd Photoボタン（枠内のみクリック可） */}
+        {!img&&(
+          <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',pointerEvents:'none'}}>
+            <button onClick={(e)=>{e.stopPropagation();fileRef.current.click();}}
+              style={{pointerEvents:'auto',border:'2px dashed #C8A8C8',borderRadius:16,padding:'48px 56px',background:'rgba(255,255,255,.4)',cursor:'pointer',display:'flex',flexDirection:'column',alignItems:'center',gap:10}}>
+              <span style={{fontSize:'2.2rem',color:'#C8A8C8',lineHeight:1}}>＋</span>
+              <span style={{fontSize:'.76rem',color:'#8A90A0',letterSpacing:'.08em',fontFamily:"'DM Sans',sans-serif"}}>Add Photo</span>
+            </button>
+          </div>
+        )}
 
         {/* ロゴ＋アクション（上部オーバーレイ） */}
         <div style={{position:'absolute',top:0,left:0,right:0,padding:'14px 16px',background:'linear-gradient(to bottom,rgba(247,243,250,.9),transparent)',display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
@@ -1130,7 +1146,7 @@ function PaletteStory() {
             </a>
             <button onClick={()=>{setShowSave(null);setShowGallery(true);}}
               style={{padding:'12px 20px',background:'#fff',color:'#3D4458',border:'1px solid #E7DDEA',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
-              🖼 ギャラリー
+              ▤ ギャラリー
             </button>
             <button onClick={()=>{setShowSave(null);setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setTab('photo');}}
               style={{padding:'12px 20px',background:'#3D4458',color:'#fff',border:'none',borderRadius:20,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
@@ -1148,12 +1164,12 @@ function PaletteStory() {
             onClick={e=>e.stopPropagation()}>
             <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:700,fontSize:'1.05rem',color:'#3D4458',marginBottom:14}}>💡 How to use</div>
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
-              <b style={{color:'#3D4458'}}>📸 Photo</b> — 写真を選択<br/>
-              <b style={{color:'#3D4458'}}>🎨 Color</b> — 色を抽出・背景色を選ぶ<br/>
-              <b style={{color:'#3D4458'}}>🃏 Card</b> — カラーカードのスタイルを選ぶ<br/>
-              <b style={{color:'#3D4458'}}>✏️ Title</b> — タイトルを入力または提案から選ぶ<br/>
-              <b style={{color:'#3D4458'}}>📝 Body</b> — 本文・日付などを入力<br/>
-              <b style={{color:'#3D4458'}}>💾 Save</b> — 画像を保存
+              <b style={{color:'#3D4458'}}>◈ Photo</b> — 写真を選択<br/>
+              <b style={{color:'#3D4458'}}>◉ Color</b> — 色を抽出・背景色を選ぶ<br/>
+              <b style={{color:'#3D4458'}}>◫ Card</b> — カラーカードのスタイルを選ぶ<br/>
+              <b style={{color:'#3D4458'}}>◐ Title</b> — タイトルを入力または提案から選ぶ<br/>
+              <b style={{color:'#3D4458'}}>◑ Body</b> — 本文・日付などを入力<br/>
+              <b style={{color:'#3D4458'}}>◱ Save</b> — 画像を保存
             </div>
             <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>プレビューの操作</div>
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:12,padding:'12px',fontSize:'.78rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
@@ -1168,7 +1184,7 @@ function PaletteStory() {
               3. 「追加」→ アプリとして使える！
             </div>
             <div style={{background:'#FFF8E7',border:'1px solid #F0E0C0',borderRadius:12,padding:'12px',fontSize:'.75rem',lineHeight:1.7,color:'#8A7A60',marginBottom:16}}>
-              ⚠️ 作品履歴はこのデバイスのSafariに保存されます。「Webサイトデータを消去」すると削除されます。
+              ! 作品履歴はこのデバイスのSafariに保存されます。「Webサイトデータを消去」すると削除されます。
             </div>
             <button onClick={()=>setShowHowTo(false)}
               style={{width:'100%',padding:'12px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:12,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
