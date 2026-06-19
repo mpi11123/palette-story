@@ -459,7 +459,7 @@ function PaletteStory() {
         setColors([]); setStrategy(0); setFinalCrop(null); setCrop(null);
         setFitMode('contain');
         // 写真選択後に自動でトリミング画面を開く
-        setTimeout(()=>{ setCropImg(i); setShowCrop(true); }, 50);
+        setTimeout(()=>{ setCrop({x:0,y:0,w:i.width,h:i.height}); setShowCrop(true); }, 50);
         // ピクセル抽出を同時実行
         // 200x200で高解像度サンプリング（色情報を保持）
         const hc=hiddenRef.current, hx=hc.getContext('2d');
@@ -884,6 +884,20 @@ function PaletteStory() {
           }}
           onTouchEnd={()=>{const vt=viewTransform.current;vt.pinching=false;setTimeout(()=>{vt.dragging=false;},150);}}
           onDoubleClick={()=>{const vt=viewTransform.current;vt.scale=1;vt.x=0;vt.y=0;setViewScale(1);setViewOffset({x:0,y:0});}}
+          onClick={(e)=>{
+            e.stopPropagation();
+            if(img) return;
+            const r=e.currentTarget.getBoundingClientRect();
+            const x=(e.clientX-r.left)/r.width*CW;
+            const y=(e.clientY-r.top)/r.height*CH;
+            const photoW=CW*PHOTO_SIZES[photoSize];
+            const photoH=Math.round(CW*PHOTO_SIZES['L']*0.9);
+            const photoX=(CW-photoW)/2;
+            const photoY=PAD;
+            if(x>=photoX && x<=photoX+photoW && y>=photoY && y<=photoY+photoH){
+              fileRef.current?.click();
+            }
+          }}
         />
         {/* 写真枠の上にだけ透明ボタンを重ねる */}
         {!img&&photoRect&&(
@@ -961,7 +975,7 @@ function PaletteStory() {
                   <>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:8}}>
                       <SBtn onClick={()=>fileRef.current.click()} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>写真を変える</SBtn>
-                      <SBtn onClick={()=>{setCropImg(img);setShowCrop(true);}} active={fitMode==='trim'&&!!finalCrop} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>トリミング</SBtn>
+                      <SBtn onClick={()=>{if(img){setCrop(finalCrop&&finalCrop.w>10?finalCrop:{x:0,y:0,w:img.width,h:img.height});setShowCrop(true);}}} active={fitMode==='trim'&&!!finalCrop} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>トリミング</SBtn>
                       <SBtn onClick={()=>{setFitMode('contain');setFinalCrop(null);}} active={fitMode==='contain'} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>そのまま</SBtn>
                     </div>
                     <Lbl t="Size" sub="写真サイズ"/>
