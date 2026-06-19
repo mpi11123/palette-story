@@ -952,7 +952,7 @@ function PaletteStory() {
       </div>
 
       {/* ── Bottom Tab Bar + Sheet ── */}
-      <div style={{flexShrink:0,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',position:'relative'}}>
+      <div style={{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:'calc(env(safe-area-inset-bottom, 0px) + 12px)',width:'100%',maxWidth:480,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',position:'fixed',zIndex:80,boxShadow:'0 -8px 24px rgba(61,68,88,.08)'}}>
 
         {/* シートパネル：タブバーの上にabsoluteで展開 */}
         {tab&&(
@@ -960,7 +960,7 @@ function PaletteStory() {
             position:'absolute',bottom:'100%',left:0,right:0,
             background:'#FFFFFF',borderTop:'1px solid #E7DDEA',
             borderBottom:'1px solid #E7DDEA',
-            overflowY:'auto',maxHeight:'40vh',
+            overflow:'visible',
             padding:'6px 18px 12px',
             zIndex:10,
           }}>
