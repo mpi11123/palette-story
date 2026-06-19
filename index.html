@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>palette story.</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100dvh;overflow:hidden;background:#F7F3FA;}
+#root{height:100dvh;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
+<script>
+const {useState,useRef,useEffect,useCallback,useMemo}=React;
+</script>
+<script type="text/babel">
+const FONTS = [
+  { label: "── English ──", value: null, disabled: true },
+  { label: "Playfair Display", value: "'Playfair Display', serif" },
+  { label: "Cormorant Garamond", value: "'Cormorant Garamond', serif" },
+  { label: "EB Garamond", value: "'EB Garamond', serif" },
+  { label: "DM Sans", value: "'DM Sans', sans-serif" },
+  { label: "Caveat", value: "Caveat, cursive" },
+  { label: "Courier Prime", value: "'Courier Prime', monospace" },
+  { label: "── 日本語 ──", value: null, disabled: true },
+  { label: "Shippori Mincho", value: "'Shippori Mincho', serif" },
+  { label: "Zen Old Mincho", value: "'Zen Old Mincho', serif" },
+  { label: "Zen Maru Gothic", value: "'Zen Maru Gothic', sans-serif" },
+  { label: "Zen Kaku Gothic New", value: "'Zen Kaku Gothic New', sans-serif" },
+  { label: "Noto Sans JP", value: "'Noto Sans JP', sans-serif" },
+];
+
+// ─────────────────────────────────────────────
+// PHOTO SIZE PRESETS (max width ratio of canvas)
+// ─────────────────────────────────────────────
+const PHOTO_SIZES = { S: 0.60, M: 0.75, L: 0.90 };
+
+// ─────────────────────────────────────────────
+// TITLE GENERATION — 疑似AI（色カテゴリ×ムード×名詞の組み合わせ）
+// ─────────────────────────────────────────────
+const TITLE_WORDS = {
+  warm: {
+    ja: { adj:["やさしい","あたたかい","ぬくもりの","なつかしい","ほっこりした","こんがりした","すきな","ふわふわの","ほんのりした","甘い","やわらかな","おいしい"], noun:["時間","色","午後","記録","日","朝","ひととき","かけら","思い出","季節","休日","風景","きもち","日常","空気"] },
+    en: { adj:["Warm","Cozy","Golden","Tender","Soft","Gentle","Toasty","Amber","Honey","Mellow","Buttery","Sunny"], noun:["Moment","Memory","Light","Story","Hour","Mood","Day","Diary","Morning","Afternoon","Glow","Note","Scene","Feeling","Season"] },
+    ja_note: { "Warm":"あたたかい","Cozy":"居心地のいい","Golden":"黄金色の","Tender":"やさしい","Soft":"やわらかな","Gentle":"おだやかな","Toasty":"ほんのり温かい","Amber":"琥珀色の","Honey":"ハニー","Mellow":"まろやかな","Buttery":"バターのような","Sunny":"陽気な","Moment":"ひとときの","Memory":"思い出の","Light":"光の","Story":"物語","Hour":"時間","Mood":"気分","Day":"日","Diary":"日記","Morning":"朝","Afternoon":"午後","Glow":"輝き","Note":"記録","Scene":"情景","Feeling":"きもち","Season":"季節" }
+  },
+  blue: {
+    ja: { adj:["静かな","やわらかな","澄んだ","遠い","しずかな","涼しい","深い","青い","さわやかな","透き通った","凛とした","広い"], noun:["午後","空","光","時間","色","日","記憶","ひかり","水面","波","海","風","朝","空気","静寂"] },
+    en: { adj:["Quiet","Calm","Still","Blue","Soft","Clear","Serene","Pale","Cool","Crisp","Deep","Vast"], noun:["Sky","Hour","Water","Memory","Mood","Tide","Day","Light","Ocean","Breeze","Horizon","Wave","Haze","Silence","Shore"] },
+    ja_note: { "Quiet":"静かな","Calm":"穏やかな","Still":"静止した","Blue":"青い","Soft":"やわらかな","Clear":"澄んだ","Serene":"穏やかな","Pale":"淡い","Cool":"涼しい","Crisp":"清々しい","Deep":"深い","Vast":"広大な","Sky":"空","Hour":"時間","Water":"水","Memory":"記憶","Mood":"気分","Tide":"潮","Day":"日","Light":"光","Ocean":"海","Breeze":"そよ風","Horizon":"地平線","Wave":"波","Haze":"霞","Silence":"静寂","Shore":"浜辺" }
+  },
+  pink: {
+    ja: { adj:["ときめく","やさしい","甘い","ふわりとした","かわいい","春の","花びらの","淡い","ロマンチックな","うっとりした","やさしいピンクの","はなやかな"], noun:["記録","色","朝","午後","夢","日","かけら","きもち","思い出","花","時間","気分","空気","物語","ひととき"] },
+    en: { adj:["Sweet","Blush","Soft","Little","Gentle","Rosy","Dreamy","Tender","Pretty","Delicate","Petal","Blushing"], noun:["Mood","Bloom","Day","Petals","Diary","Hours","Story","Dream","Garden","Morning","Glow","Memory","Feeling","Moment","Color"] },
+    ja_note: { "Sweet":"甘い","Blush":"ほんのり赤い","Soft":"やわらかな","Little":"小さな","Gentle":"やさしい","Rosy":"バラ色の","Dreamy":"夢見るような","Tender":"やさしい","Pretty":"かわいい","Delicate":"繊細な","Petal":"花びらの","Blushing":"頬を染めた","Mood":"気分","Bloom":"開花","Day":"日","Petals":"花びら","Diary":"日記","Hours":"時間","Story":"物語","Dream":"夢","Garden":"庭","Morning":"朝","Glow":"輝き","Memory":"思い出","Feeling":"気持ち","Moment":"ひとときの","Color":"色" }
+  },
+  green: {
+    ja: { adj:["緑の","みずみずしい","深い","静かな","やさしい","新しい","清々しい","爽やかな","瑞々しい","落ち着いた","さわやかな","草の"], noun:["静寂","時間","記録","香り","かけら","日","色","朝","庭","葉","風","光","空気","小道","森"] },
+    en: { adj:["Green","Calm","Fresh","Quiet","Still","Lush","Dewy","Crisp","Leafy","Earthy","Mossy","Verdant"], noun:["Garden","Mood","Story","Light","Leaf","Morning","Color","Life","Path","Grove","Meadow","Rain","Breeze","Herb","Shade"] },
+    ja_note: { "Green":"緑の","Calm":"穏やかな","Fresh":"新鮮な","Quiet":"静かな","Still":"静かな","Lush":"青々とした","Dewy":"露に濡れた","Crisp":"清々しい","Leafy":"葉茂る","Earthy":"土の香りの","Mossy":"苔むした","Verdant":"緑豊かな","Garden":"庭","Mood":"気分","Story":"物語","Light":"光","Leaf":"葉","Morning":"朝","Color":"色","Life":"暮らし","Path":"小道","Grove":"木立","Meadow":"草原","Rain":"雨","Breeze":"そよ風","Herb":"ハーブ","Shade":"木陰" }
+  },
+  neutral: {
+    ja: { adj:["余白の","日々の","ゆっくりした","シンプルな","ちいさな","そのままの","何気ない","なんでもない","穏やかな","静かな","のんびりした","ありふれた"], noun:["時間","記録","日","色","午後","ひとやすみ","きおく","こと","日常","暮らし","休日","風景","瞬間","空気","余白"] },
+    en: { adj:["Daily","Slow","Soft","Simple","Quiet","Little","Gentle","Plain","Ordinary","Easy","Still","Subtle"], noun:["Notes","Moments","Life","Morning","Diary","Story","Color","Day","Scene","Space","Pause","Light","Time","Habit","Rhythm"] },
+    ja_note: { "Daily":"日常の","Slow":"ゆっくりとした","Soft":"やわらかな","Simple":"シンプルな","Quiet":"静かな","Little":"ちいさな","Gentle":"おだやかな","Plain":"素朴な","Ordinary":"何気ない","Easy":"気楽な","Still":"静かな","Subtle":"繊細な","Notes":"記録","Moments":"ひとときの","Life":"暮らし","Morning":"朝","Diary":"日記","Story":"物語","Color":"色","Day":"日","Scene":"情景","Space":"余白","Pause":"休息","Light":"光","Time":"時間","Habit":"習慣","Rhythm":"リズム" }
+  },
+};
+
+// 疑似AI: 色カテゴリから組み合わせでタイトルを生成
+function shuffle(arr, seed=0) {
+  const a=[...arr]; let s=seed+1;
+  for(let i=a.length-1;i>0;i--){s=(s*1664525+1013904223)&0xffffffff;const j=Math.abs(s)%(i+1);[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+function getColorCategory(colors) {
+  if (!colors.length) return 'neutral';
+  const avg=colors.reduce((a,hex)=>[
+    a[0]+parseInt(hex.slice(1,3),16),
+    a[1]+parseInt(hex.slice(3,5),16),
+    a[2]+parseInt(hex.slice(5,7),16)
+  ],[0,0,0]).map(v=>v/colors.length);
+  const sat=getSat(avg);
+  if(sat<0.1) return 'neutral';
+  const h=Math.round(getHue(avg)*360);
+  if(h<=30||h>=330) return 'pink';
+  if(h<=75) return 'warm';
+  if(h<=165) return 'green';
+  if(h<=270) return 'blue';
+  return 'pink';
+}
+
+// 抽出した色のHEXから日本語・英語の色名を返す
+function getColorLabel(hex, lang) {
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+  const sat=mx===0?0:(mx-mn)/mx;
+  const br=(r*299+g*587+b*114)/1000;
+  const hue=mx===mn?0:mx===r?((g-b)/(mx-mn)+6)%6:mx===g?(b-r)/(mx-mn)+2:(r-g)/(mx-mn)+4;
+  const h=Math.round(hue/6*360);
+  if(sat<0.1){
+    if(br>220) return lang==='ja'?['白','透明感のある','ミルキーな']:['White','Ivory','Milky'];
+    if(br>160) return lang==='ja'?['グレー','スモーキーな','霞のような']:['Gray','Smoky','Misty'];
+    return lang==='ja'?['黒','ダークな','深い']:['Black','Dark','Deep'];
+  }
+  if(h<=30||h>=330){
+    if(br>200) return lang==='ja'?['ピンク','ローズ','桜色の']:['Pink','Rose','Blush'];
+    if(br>130) return lang==='ja'?['テラコッタ','珊瑚色の','コーラル']:['Terracotta','Coral','Dusty Rose'];
+    return lang==='ja'?['レッド','深紅の','クリムゾン']:['Red','Crimson','Burgundy'];
+  }
+  if(h<=75){
+    if(br>200) return lang==='ja'?['イエロー','バター色の','レモン']:['Yellow','Butter','Lemon'];
+    if(br>130) return lang==='ja'?['アンバー','キャラメルの','マスタード']:['Amber','Caramel','Mustard'];
+    return lang==='ja'?['ブラウン','チョコレートの','コーヒー']:['Brown','Chocolate','Coffee'];
+  }
+  if(h<=165){
+    if(br>200) return lang==='ja'?['グリーン','セージ','ミント']:['Green','Sage','Mint'];
+    if(br>130) return lang==='ja'?['オリーブ','フォレスト','深緑']:['Olive','Forest','Fern'];
+    return lang==='ja'?['ダークグリーン','深緑','苔色']:['Dark Green','Moss','Forest'];
+  }
+  if(h<=255){
+    if(br>200) return lang==='ja'?['ブルー','スカイ','水色']:['Blue','Sky','Powder Blue'];
+    if(br>130) return lang==='ja'?['ブルー','スレート','デニム']:['Blue','Slate','Denim'];
+    return lang==='ja'?['ネイビー','インディゴ','深藍']:['Navy','Indigo','Deep Blue'];
+  }
+  if(br>200) return lang==='ja'?['ラベンダー','ライラック','紫']:['Lavender','Lilac','Violet'];
+  return lang==='ja'?['パープル','プラム','バイオレット']:['Purple','Plum','Violet'];
+}
+
+function generateTitles(cat, lang, seed, count=4, extractedColors=[]) {
+  // ── 1. 抽出色ベースのタイトル ──
+  const colorTitles = [];
+  for (const hex of extractedColors) {
+    const labels = getColorLabel(hex, lang);
+    if (lang==='ja') {
+      const moods = ['のきおく','のじかん','のいろ','のひとひら','のひとこと','がすき','がかわいい','の午後','の空気','のかけら'];
+      const adjs2 = ['やさしい','ふわりとした','淡い','すきな','小さな'];
+      for (const l of labels) {
+        for (const m of moods.slice(0,3)) colorTitles.push(l+m);
+        for (const a of adjs2.slice(0,2)) colorTitles.push(a+l);
+      }
+    } else {
+      const moods = ['Memory','Moment','Story','Mood','Note','Color','Day','Feeling'];
+      const adjs2 = ['Soft','Gentle','Little','Sweet','Quiet'];
+      for (const l of labels) {
+        for (const m of moods.slice(0,3)) colorTitles.push(l+' '+m);
+        for (const a of adjs2.slice(0,2)) colorTitles.push(a+' '+l);
+      }
+    }
+  }
+
+  // ── 2. 汎用タイトル（どんな写真にも合う）──
+  const universal = lang==='ja'
+    ? ['今日のいろ','小さな幸せ','ひとやすみ','きょうのかけら','なんでもない日','すきなもの','余白の時間','ちいさなきろく','いつかのきおく','そのままで','ひとときの','ゆっくりと','たいせつなもの','日々のいろ','きれいなもの','ふとしたとき','やわらかな日','ちいさなこと','いろのきろく','毎日のいろ']
+    : ['Color Story','Daily Notes','Little Moments','Soft Life','Color Diary','Just This','Slow Morning','Color Memory','Everyday','Tiny Record','Color Notes','Still Life','Color Palette','My Colors','Color Mood'];
+
+  // ── 3. 混ぜてシャッフル（色ベース2〜3個＋汎用1〜2個）──
+  const colorPicked = shuffle([...new Set(colorTitles)], seed).slice(0, count*2);
+  const univPicked  = shuffle(universal, seed+1).slice(0, count);
+  const all = shuffle([...colorPicked, ...univPicked], seed+2);
+  const unique = [...new Set(all)].slice(0, count*3);
+
+  if (lang==='en') {
+    // 英語タイトルに日本語訳を添える
+    // 抽出色の英語ラベル→日本語ラベルのマップを作る
+    const enToJa = {};
+    for (const hex of extractedColors) {
+      const jaLabels = getColorLabel(hex, 'ja');
+      const enLabels = getColorLabel(hex, 'en');
+      enLabels.forEach((en,i)=>{ if(jaLabels[i]) enToJa[en]=jaLabels[i]; });
+    }
+    // 汎用訳
+    const univJa = {
+      'Color Story':'色の物語','Daily Notes':'日々の記録','Little Moments':'ちいさなひとときの',
+      'Soft Life':'やわらかな暮らし','Color Diary':'色日記','Just This':'そのままで',
+      'Slow Morning':'ゆっくりとした朝','Color Memory':'色のきおく','Everyday':'日常',
+      'Tiny Record':'ちいさな記録','Color Notes':'色メモ','Still Life':'静物',
+      'Color Palette':'カラーパレット','My Colors':'わたしのいろ','Color Mood':'色の気分',
+    };
+    return shuffle(unique, seed+3).slice(0,count).map(title=>{
+      // 1. タイトル全体が辞書にある → その訳を使う
+      if (univJa[title]) return {title, ja:`（${univJa[title]}）`};
+      // 2. 各単語を個別に訳す（色名など）
+      const words = title.split(' ');
+      const jaWords = words.map(w=>enToJa[w]).filter(Boolean);
+      const ja = jaWords.length ? `（${jaWords.join('')}）` : '';
+      return {title, ja};
+    });
+  }
+  return shuffle(unique, seed+3).slice(0,count).map(t=>({title:t, ja:''}));
+}
+
+// ─────────────────────────────────────────────
+// COLOR UTILITIES
+// ─────────────────────────────────────────────
+function dist(a, b) { return (a[0]-b[0])**2+(a[1]-b[1])**2+(a[2]-b[2])**2; }
+function toHex(r,g,b) { return '#'+[r,g,b].map(v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join(''); }
+function soften(r,g,b) { return toHex(r+(255-r)*.5,g+(255-g)*.5,b+(255-b)*.5); }
+
+function kmeans(px, k, seed=0) {
+  const step=Math.floor(px.length/k);
+  const off=(seed*17)%Math.max(1,px.length);
+  let c=Array.from({length:k},(_,i)=>px[(off+i*step)%px.length]||[128,128,128]);
+  for (let t=0;t<15;t++) {
+    const cl=Array.from({length:k},()=>[]);
+    for (const p of px) { let b=0,bd=Infinity; for (let i=0;i<k;i++){const d=dist(p,c[i]);if(d<bd){bd=d;b=i;}} cl[b].push(p); }
+    c=cl.map(g=>{if(!g.length)return[128,128,128];const a=[0,0,0];for(const p of g){a[0]+=p[0];a[1]+=p[1];a[2]+=p[2];}return a.map(v=>Math.round(v/g.length));});
+  }
+  return c;
+}
+
+function getHue([r,g,b]) {
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+  if(mx===mn) return 0;
+  return mx===r?(g-b)/(mx-mn)/6+(g<b?1:0):mx===g?(b-r)/(mx-mn)/6+1/3:(r-g)/(mx-mn)/6+2/3;
+}
+function getSat([r,g,b]) { const mx=Math.max(r,g,b),mn=Math.min(r,g,b);return mx===0?0:(mx-mn)/mx; }
+function getBr([r,g,b]) { return (r*299+g*587+b*114)/1000; }
+
+function pick3(px, strategy=0) {
+  if (!px.length) return [];
+
+  // 改善版：平均色に寄りすぎないよう、アクセント色・彩度・面積のバランスで選ぶ
+  const sample = px.filter((_, i) => i % 3 === 0);
+  const centers = kmeans(sample, 14, strategy * 9 + 3);
+
+  const clusterCount = centers.map(c => ({ c, n: 0 }));
+  for (const p of sample) {
+    let bi = 0, bd = Infinity;
+    for (let i = 0; i < centers.length; i++) {
+      const d = dist(p, centers[i]);
+      if (d < bd) { bd = d; bi = i; }
+    }
+    clusterCount[bi].n++;
+  }
+
+  const total = Math.max(1, sample.length);
+  const scored = clusterCount.map(({c,n}) => {
+    const sat = getSat(c);
+    const br = getBr(c);
+    const area = n / total;
+    const midLight = 1 - Math.abs(br - 145) / 145;
+    const accent = sat * 1.9 + midLight * 0.35;
+    const score = accent + Math.sqrt(area) * 0.65;
+    return { c, sat, br, area, score };
+  })
+  // 真っ白・真っ黒すぎる色は優先度を下げる。ただし候補からは消さない
+  .map(o => ({...o, score: o.score - (o.br > 238 || o.br < 24 ? 0.7 : 0)}))
+  .sort((a,b) => b.score - a.score);
+
+  // strategyごとに少し選び方を変える
+  let pool = scored;
+  if (strategy % 4 === 1) pool = scored.slice().sort((a,b)=>b.sat-a.sat || b.area-a.area);
+  if (strategy % 4 === 2) pool = scored.slice().sort((a,b)=>Math.abs(150-a.br)-Math.abs(150-b.br));
+  if (strategy % 4 === 3) pool = scored.slice().sort((a,b)=>b.area-a.area || b.sat-a.sat);
+
+  const sel=[];
+  for (const o of pool) {
+    if (sel.length >= 3) break;
+    const c = o.c;
+    const tooClose = sel.some(s => {
+      const hd = Math.min(Math.abs(getHue(c)-getHue(s)), 1-Math.abs(getHue(c)-getHue(s)));
+      return dist(c,s) < 1800 || hd < 0.055;
+    });
+    if (!tooClose) sel.push(c);
+  }
+  for (const o of pool) { if(sel.length>=3) break; if(!sel.includes(o.c)) sel.push(o.c); }
+
+  // 彩度をほんの少しだけ整える。くすみすぎを防ぐが、写真の雰囲気は壊さない
+  return sel.slice(0,3).map(([r,g,b]) => {
+    const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+    if (mx===0 || mx===mn) return toHex(r,g,b);
+    const sat=(mx-mn)/mx;
+    const boost=Math.min(1, sat + 0.10);
+    const scale=boost/sat;
+    return toHex(
+      mx - (mx-r)*scale,
+      mx - (mx-g)*scale,
+      mx - (mx-b)*scale
+    );
+  });
+}
+
+function colorName(hex) {
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  const br=getBr([r,g,b]), sat=getSat([r,g,b]);
+  const h=Math.round(getHue([r,g,b])*360);
+
+  // palette story 専用の色名。Hue / Saturation / Brightness で分岐して、
+  // #F54871 のような鮮やかなピンクが TERRA COTTA にならないようにする。
+  if (sat < .08) {
+    if (br > 232) return 'IVORY';
+    if (br > 175) return 'MIST';
+    if (br > 95) return 'STONE';
+    return 'INK';
+  }
+
+  // red / pink
+  if (h >= 340 || h < 12) {
+    if (sat > .58 && br > 110) return 'BERRY';
+    if (br > 205) return 'BLUSH';
+    if (br > 140) return 'ROSE';
+    return 'CRIMSON';
+  }
+  if (h < 28) {
+    if (sat > .62 && br > 140) return 'CORAL';
+    if (br > 185) return 'PEACH';
+    return 'CINNAMON';
+  }
+
+  // orange / brown
+  if (h < 52) {
+    if (br > 205) return 'BUTTER';
+    if (sat < .35 && br > 150) return 'LATTE';
+    if (br > 120) return 'CARAMEL';
+    return 'COCOA';
+  }
+
+  // yellow
+  if (h < 76) {
+    if (br > 205) return 'LEMON';
+    if (sat > .45) return 'HONEY';
+    return 'SAND';
+  }
+
+  // green
+  if (h < 165) {
+    if (br > 205 && sat < .45) return 'MINT';
+    if (br > 185) return 'SAGE';
+    if (sat > .45 && br > 120) return 'OLIVE';
+    if (br > 95) return 'MOSS';
+    return 'FOREST';
+  }
+
+  // blue / cyan
+  if (h < 255) {
+    if (br > 215) return 'ICE';
+    if (br > 185) return 'SKY';
+    if (sat < .35 && br > 125) return 'DENIM';
+    if (br > 95) return 'BLUE';
+    return 'NAVY';
+  }
+
+  // purple
+  if (h < 305) {
+    if (br > 210) return 'LILAC';
+    if (br > 170) return 'LAVENDER';
+    if (sat < .42) return 'MAUVE';
+    return 'PLUM';
+  }
+
+  // magenta / pink purple
+  if (sat > .55 && br > 135) return 'BERRY';
+  if (br > 205) return 'BLUSH';
+  if (br > 150) return 'ROSE';
+  return 'MAUVE';
+}
+// ─────────────────────────────────────────────
+// CANVAS CARD RENDERERS
+// ─────────────────────────────────────────────
+const INK='#667A8C', CARD_BG='#FAFAF8';
+
+function drawMinimalChip(ctx, x, y, colors) {
+  const CS=22,GAP=6,PD=10,LH=26;
+  const W=CS*3+GAP*2+PD*2, H=CS+LH+PD*2;
+  ctx.save();ctx.shadowColor='rgba(75,55,92,.12)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
+  ctx.fillStyle=CARD_BG;ctx.fillRect(x,y,W,H);ctx.restore();
+  ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.7;ctx.strokeRect(x,y,W,H);
+  colors.forEach((hex,i)=>{
+    const cx=x+PD+i*(CS+GAP);
+    ctx.fillStyle=hex;ctx.fillRect(cx,y+PD,CS,CS);
+    ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(cx,y+PD,CS,CS);
+    ctx.fillStyle=INK;ctx.globalAlpha=.95;ctx.font=`900 6.5px 'Courier Prime','Courier New',monospace`;
+    ctx.textAlign='center';ctx.textBaseline='alphabetic';
+    ctx.fillText(hex.toUpperCase(),cx+CS/2,y+PD+CS+16);
+    ctx.globalAlpha=1;
+  });
+}
+
+function fitLabelText(text, maxChars=9) {
+  if (!text) return [''];
+  if (text.length <= maxChars) return [text];
+  if (text.includes(' ')) {
+    const parts=text.split(' ');
+    return [parts[0].slice(0,maxChars), parts.slice(1).join(' ').slice(0,maxChars)];
+  }
+  return [text.slice(0, maxChars), text.slice(maxChars, maxChars*2)];
+}
+
+function drawPantoneCard(ctx, x, y, colors) {
+  const CW=62,CH=84,GAP=6;
+  const colorH=Math.round(CH*0.60), labelH=CH-colorH;
+  const fitName=(name)=>{
+    if(name.length<=8) return [name];
+    if(name==='TERRACOTTA') return ['TERRA','COTTA'];
+    if(name==='PERIWINKLE') return ['PERI','WINKLE'];
+    if(name==='CHARCOAL') return ['CHAR','COAL'];
+    return [name.slice(0,8)];
+  };
+  colors.forEach((hex,i)=>{
+    const cx=x+i*(CW+GAP),cy=y;
+    ctx.save();ctx.shadowColor='rgba(75,55,92,.14)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
+    ctx.fillStyle=CARD_BG;ctx.fillRect(cx,cy,CW,CH);ctx.restore();
+    ctx.fillStyle=hex;ctx.fillRect(cx,cy,CW,colorH);
+    ctx.fillStyle=CARD_BG;ctx.fillRect(cx,cy+colorH,CW,labelH);
+    ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.6;ctx.strokeRect(cx,cy,CW,CH);
+
+    const lines=fitName(colorName(hex));
+    ctx.fillStyle=INK;ctx.font=`900 6.8px 'Plus Jakarta Sans',sans-serif`;
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    lines.slice(0,2).forEach((line,li)=>ctx.fillText(line,cx+5,cy+colorH+9+li*7.5));
+
+    ctx.fillStyle=INK;ctx.globalAlpha=.98;ctx.font=`900 7.3px 'Courier Prime','Courier New',monospace`;
+    ctx.fillText(hex.toUpperCase(),cx+5,cy+CH-5);
+    ctx.globalAlpha=1;
+  });
+}
+
+function drawSlimLabel(ctx, x, y, colors) {
+  const SW=15,PD=9,rowH=24,W=178,H=rowH*3+PD*2;
+  ctx.save();ctx.shadowColor='rgba(75,55,92,.14)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
+  ctx.fillStyle=CARD_BG;ctx.fillRect(x,y,W,H);ctx.restore();
+  ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.6;ctx.strokeRect(x,y,W,H);
+  colors.forEach((hex,i)=>{
+    const ry=y+PD+i*rowH;
+    ctx.fillStyle=hex;ctx.fillRect(x+PD,ry+4,SW,SW);
+    ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(x+PD,ry+4,SW,SW);
+    ctx.fillStyle=INK;ctx.font=`900 6.4px 'Plus Jakarta Sans',sans-serif`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    const nm=colorName(hex);
+    ctx.fillText(nm.length>11?nm.slice(0,11):nm,x+PD+SW+7,ry+14);
+    ctx.globalAlpha=.98;ctx.font=`900 6.5px 'Courier Prime','Courier New',monospace`;ctx.textAlign='right';
+    ctx.fillText(hex.toUpperCase(),x+W-PD,ry+14);ctx.globalAlpha=1;
+  });
+}
+
+function getCardDims(style) {
+  if(style==='minimal') return{w:22*3+6*2+10*2,h:22+26+10*2};
+  if(style==='pantone') return{w:62*3+6*2,h:84};
+  return{w:178,h:24*3+9*2};
+}
+
+function wrapText(ctx, text, maxW) {
+  const chars=text.split(''),lines=[]; let cur='';
+  for(const c of chars){
+    if(c==='\n'){lines.push(cur);cur='';continue;}
+    const t=cur+c;
+    if(ctx.measureText(t).width>maxW&&cur){lines.push(cur);cur=c;}else cur=t;
+  }
+  if(cur)lines.push(cur);return lines;
+}
+
+// ─────────────────────────────────────────────
+// CANVAS CONSTANTS
+// ─────────────────────────────────────────────
+const OUT_W=1080, OUT_H=1920;
+const CW=405, CH=720;
+const SCALE=OUT_W/CW;
+const PAD=Math.round(CW*0.1);
+const DPR = typeof window!=='undefined' ? (window.devicePixelRatio||2) : 2;
+
+
+// ─────────────────────────────────────────────
+// UI ICONS — filled / blocky / square-ish
+// ─────────────────────────────────────────────
+function SolidIcon({name,size=17,color='currentColor'}){
+  const common={width:size,height:size,viewBox:'0 0 24 24',fill:color,style:{display:'block'}};
+  const icons={
+    home:(<svg {...common}><path d="M3 10.2 12 3l9 7.2v2.2h-2V21h-5v-6h-4v6H5v-8.6H3z"/></svg>),
+    bulb:(<svg {...common}><path d="M5 4h14v11H9l-4 4V4Zm6 4h2v2h-2V8Zm0 4h2v2h-2v-2Z"/></svg>),
+    reset:(<svg {...common}><path d="M5 5h8v4H9.7c1.1 1.1 2.2 2.2 3.3 3.3 1.2 1.2 3.1.3 3.1-1.4V8h4v2.9c0 5.3-6.4 7.9-10.1 4.1L8 13v3H4V5h1Z"/></svg>),
+    shuffle:(<svg {...common}><path d="M4 6h9v3h2V4h-2v2H4v3Zm16 3-5-5v10l5-5ZM20 18h-9v-3H9v5h2v-2h9v-3ZM4 15l5 5V10l-5 5Z"/></svg>),
+    eye:(<svg {...common}><path d="M12 5C6.2 5 2.8 9.2 2 12c.8 2.8 4.2 7 10 7s9.2-4.2 10-7c-.8-2.8-4.2-7-10-7Zm0 10a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>),
+    save:(<svg {...common}><path d="M5 3h11l3 3v15H5V3Zm3 2v6h8V5H8Zm1 11v3h6v-3H9Z"/></svg>),
+    photo:(<svg {...common}><path d="M3 5h18v14H3V5Zm3 10h12l-4-5-3 4-2-2-3 3Zm1-7.5A1.5 1.5 0 1 0 7 10a1.5 1.5 0 0 0 0-2.5Z"/></svg>),
+    color:(<svg {...common}><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"/></svg>),
+    card:(<svg {...common}><path d="M3 5h18v14H3V5Zm2 2v4h14V7H5Zm0 6v4h6v-4H5Zm8 0v4h6v-4h-6Z"/></svg>),
+    title:(<svg {...common}><path d="M4 4h16v4h-6v12h-4V8H4V4Z"/></svg>),
+    body:(<svg {...common}><path d="M4 5h16v3H4V5Zm0 5h16v3H4v-3Zm0 5h11v3H4v-3Z"/></svg>),
+  };
+  return icons[name]||null;
+}
+
+// ─────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────
+function PaletteStory() {
+  const previewRef = useRef(null);
+  const hiddenRef  = useRef(null);
+  const fileRef    = useRef(null);
+  const cropCvRef  = useRef(null);
+  const dragRef    = useRef({active:false,mode:'new',handle:null,startX:0,startY:0,c0:null});
+
+  // ── state ──
+  const [img,      setImg]      = useState(null);
+  const [pixels,   setPixels]   = useState([]);
+  const [colors,   setColors]   = useState([]);
+  const [bgColor,  setBgColor]  = useState('#F5F2EE');
+  const [bgSugs,   setBgSugs]   = useState([]);
+  const [selBg,    setSelBg]    = useState(null);
+  const [strategy, setStrategy] = useState(0);
+  const [colorHistory, setColorHistory] = useState([]); // [{colors, bgColor}]
+  const [photoSize,setPhotoSize]= useState('M');
+  const [fitMode,  setFitMode]  = useState('contain'); // 'contain' | 'trim'
+  const [crop,     setCrop]     = useState(null);      // image coords
+  const [finalCrop,setFinalCrop]= useState(null);
+  const [showCrop, setShowCrop] = useState(false);
+  const [cardStyle,setCardStyle]= useState('pantone');
+  const [cardAlign,setCardAlign]= useState('right');  // left|center|right
+  const [font,     setFont]     = useState("'Playfair Display', serif");
+  const [titleTxt, setTitleTxt] = useState('');
+  const [bodyTxt,  setBodyTxt]  = useState('');
+  const [titleAlign,setTitleAlign]=useState('left');
+  const [bodyAlign, setBodyAlign] =useState('left');
+  const [titleLang,setTitleLang]= useState('ja');
+  const [titleSeed,setTitleSeed]= useState(0);
+  const [suggestions,setSuggestions]=useState([]);
+  const [showSugg, setShowSugg] = useState(false);
+  const [tab,      setTab]      = useState('photo');
+  const [showFullPreview,setShowFullPreview]=useState(false);
+  const [showSave,setShowSave]=useState(null);
+  const [showGallery,setShowGallery]=useState(true); // 起動時はギャラリー表示
+  const [gallery,setGallery]=useState(()=>{
+    try{const g=localStorage.getItem('ps_gallery');return g?JSON.parse(g):[];}
+    catch{return [];}
+  });
+  const [showHowTo,setShowHowTo]=useState(false);
+  const [galleryPreview,setGalleryPreview]=useState(null);
+  const viewTransform=useRef({scale:1,x:0,y:0,lastDist:0,lastX:0,lastY:0,pinching:false,dragging:false});
+  const [viewScale,setViewScale]=useState(1);
+  const [viewOffset,setViewOffset]=useState({x:0,y:0});
+  const [photoRect,setPhotoRect]=useState(null); // canvas内の写真枠の位置（CSS座標） // 保存用dataURL
+  // canvas直接編集用
+  const [titlePos,setTitlePos]=useState({snap:'left',offsetY:0});   // snap: left|center|right
+  const [bodyPos,setBodyPos]=useState({snap:'left',offsetY:20});
+  const canvasDragRef=useRef({active:false,target:null,startX:0,startY:0,startOffsetY:0});
+  const [cardScale,setCardScale]= useState(90);      // 80-120%
+  const [textOffset,setTextOffset]=useState(20);     // 0-80px
+  const [titleFont,setTitleFont]= useState("'Playfair Display', serif");
+  const [bodyFont, setBodyFont] = useState("'DM Sans', sans-serif");
+  const [titleSize,setTitleSize]= useState(24);
+  const [bodySize, setBodySize] = useState(15);
+  const [titleColor,setTitleColor]=useState('#3D4458');
+  const [bodyColor, setBodyColor] =useState('rgba(61,68,88,0.72)');
+  const [bodyBold,  setBodyBold]  =useState(false);
+  const [titleBold, setTitleBold] =useState(false);
+
+  // ── file upload ──
+  const handleFile = (e) => {
+    const f=e.target.files[0]; if(!f)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const i=new Image();
+      i.onload=()=>{
+        setImg(i);
+        setColors([]); setStrategy(0); setFinalCrop(null); setCrop(null);
+        setFitMode('contain');
+        // 写真選択後に自動でトリミング画面を開く
+        setTimeout(()=>{ setCrop(null); setShowCrop(true); }, 50);
+        // ピクセル抽出を同時実行
+        // 200x200で高解像度サンプリング（色情報を保持）
+        const hc=hiddenRef.current, hx=hc.getContext('2d');
+        hc.width=200; hc.height=200; hx.drawImage(i,0,0,200,200);
+        const d=hx.getImageData(0,0,200,200).data;
+        const px=[];
+        for(let j=0;j<d.length;j+=4){
+          if(d[j+3]<128)continue;
+          px.push([d[j],d[j+1],d[j+2]]);
+        }
+        setPixels(px);
+      };
+      i.src=ev.target.result;
+    };
+    reader.readAsDataURL(f);
+  };
+
+  // ── color extract ──
+  const extract=(s,px=pixels, saveHistory=true)=>{
+    if(!px.length)return;
+    const c3=pick3(px,s);
+    const bgs=c3.map(hex=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return soften(r,g,b);});
+    // 履歴は「現在のNEW」を001に押し出す。新しく抽出した色は履歴に入れない。
+    if(saveHistory && colors.length===3) setColorHistory(prev=>{
+      const oldEntry={key:colors.join(','),colors:[...colors],bg:bgColor};
+      const filtered=prev.filter(h=>h.key!==oldEntry.key);
+      return [oldEntry,...filtered].slice(0,12);
+    });
+    setColors(c3); setBgSugs(bgs); setSelBg(bgs[0]); setBgColor(bgs[0]);
+  };
+  const doExtract=()=>{
+    setStrategy(0);
+    setColorHistory([]); // 新しい写真では履歴リセット
+    extract(0,pixels,false);
+  };
+  const doRetry=()=>{
+    const ns=strategy+1; setStrategy(ns); extract(ns);
+  };
+
+  // ── title suggestions (疑似AI生成) ──
+  const genSugg=()=>{
+    const cat=getColorCategory(colors);
+    const ns=titleSeed+1; setTitleSeed(ns);
+    setSuggestions(generateTitles(cat,titleLang,ns,4,colors));
+    setShowSugg(true);
+  };
+
+  // ── photo layout calculation ──
+  // Returns {photoX, photoY, photoW, photoH, photoSrcW, photoSrcH}
+  // All in canvas (CW/CH) coordinates
+  const calcPhotoLayout = useCallback(() => {
+    const maxW = CW * PHOTO_SIZES[photoSize];
+    const maxH = CW * PHOTO_SIZES[photoSize] * 1.2; // 縦はやや大きめ
+
+    if (!img) {
+      // 空状態: Large相当の仮エリア
+      const ph=Math.round(CW*PHOTO_SIZES['L']*0.9);
+      return { photoX:(CW-CW*PHOTO_SIZES['L'])/2, photoY:PAD, photoW:CW*PHOTO_SIZES['L'], photoH:ph, srcW:0, srcH:0 };
+    }
+
+    let srcW, srcH;
+    if (finalCrop && finalCrop.w>10) {
+      srcW=finalCrop.w; srcH=finalCrop.h;
+    } else {
+      srcW=img.width; srcH=img.height;
+    }
+
+    // contain: 縦横比維持、maxW/maxHに収める
+    const scale = Math.min(maxW/srcW, maxH/srcH);
+    const photoW = srcW*scale;
+    const photoH = srcH*scale;
+    const photoX = (CW-photoW)/2;
+    const photoY = PAD;
+
+    return { photoX, photoY, photoW, photoH, srcW, srcH };
+  }, [img, finalCrop, photoSize]);
+
+  // ── main render ──
+  const render = useCallback(() => {
+    const cv=previewRef.current; if(!cv)return;
+    const ctx=cv.getContext('2d');
+    ctx.setTransform(1,0,0,1,0,0); // リセット
+    ctx.clearRect(0,0,CW*2,CH*2);
+    ctx.scale(2,2); // Retina対応
+    ctx.fillStyle=bgColor; ctx.fillRect(0,0,CW,CH);
+
+    // photoLayout インライン計算
+    const _maxW=CW*PHOTO_SIZES[photoSize], _maxH=CW*PHOTO_SIZES[photoSize]*1.2;
+    let photoX,photoY,photoW,photoH;
+    photoX=(CW-CW*PHOTO_SIZES[photoSize])/2; photoY=PAD;
+    if(!img){
+      photoW=CW*PHOTO_SIZES[photoSize]; photoH=Math.round(CW*PHOTO_SIZES['L']*0.9);
+    }else{
+      let srcW=img.width,srcH=img.height;
+      if(finalCrop&&finalCrop.w>10){srcW=finalCrop.w;srcH=finalCrop.h;}
+      const _sc=Math.min(_maxW/srcW,_maxH/srcH);
+      photoW=srcW*_sc; photoH=srcH*_sc;
+      photoX=(CW-photoW)/2; photoY=PAD;
+    }
+    const photoBtm=photoY+photoH;
+
+    // 写真描画
+    if (!img) {
+      // 背景（薄いウォームグレー）
+      ctx.fillStyle='rgba(0,0,0,.04)'; ctx.fillRect(photoX,photoY,photoW,photoH);
+      // 点線枠
+      ctx.save();
+      ctx.strokeStyle='rgba(0,0,0,.18)'; ctx.lineWidth=1.5;
+      ctx.setLineDash([6,5]); ctx.strokeRect(photoX+1,photoY+1,photoW-2,photoH-2);
+      ctx.restore();
+      // ＋ 大きく
+      ctx.fillStyle='rgba(0,0,0,.22)'; ctx.font=`bold 36px sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText('＋', photoX+photoW/2, photoY+photoH/2-16);
+      // Add Photo
+      ctx.fillStyle='rgba(0,0,0,.22)'; ctx.font=`500 15px 'Plus Jakarta Sans',sans-serif`;
+      ctx.fillText('Add Photo', photoX+photoW/2, photoY+photoH/2+22);
+    } else {
+      if (finalCrop && finalCrop.w>10) {
+        // トリミング: crop範囲をそのまま、さらに切らない
+        ctx.drawImage(img, finalCrop.x,finalCrop.y,finalCrop.w,finalCrop.h, photoX,photoY,photoW,photoH);
+      } else {
+        // そのまま: contain表示
+        ctx.drawImage(img, photoX,photoY,photoW,photoH);
+      }
+    }
+
+    // カラーカード（cardScaleで拡縮）
+    let cardBtm = photoBtm;
+    if (colors.length===3) {
+      const sc=cardScale/100;
+      const {w:cW0,h:cH0}=getCardDims(cardStyle);
+      const cW=cW0*sc, cH=cH0*sc;
+      // Left: 左下にはみ出す, Center: 中央, Right: 右下にはみ出す
+      const OUTSET=cW*0.30; // カードの30%を外にはみ出す（雑誌風）
+      let cx;
+      if(cardAlign==='left') cx=photoX-OUTSET;
+      else if(cardAlign==='right') cx=photoX+photoW-cW+OUTSET;
+      else cx=photoX+(photoW-cW)/2;
+      // キャンバス外に出ないよう自動補正
+      cx=Math.max(2, Math.min(CW-cW-2, cx));
+      // 重なり量: カードの上30%が写真に重なる
+      const cy=photoBtm-Math.round(cH*0.30);
+      // scaleしてから描画
+      ctx.save();
+      ctx.translate(cx,cy);
+      ctx.scale(sc,sc);
+      if(cardStyle==='minimal') drawMinimalChip(ctx,0,0,colors);
+      else if(cardStyle==='pantone') drawPantoneCard(ctx,0,0,colors);
+      else drawSlimLabel(ctx,0,0,colors);
+      ctx.restore();
+      cardBtm=cy+cH;
+    }
+
+    // テキスト（textOffsetで位置調整、個別フォント/サイズ/カラー）
+    const textY=Math.max(photoBtm,cardBtm)+32+textOffset;
+    const textW=CW-PAD*2;
+    let curY=textY;
+
+    // タイトル（空なら描画しない）
+    let titleBaseY=curY;
+    if (titleTxt.trim()) {
+      // snapからX位置を計算
+      const tSnap=titlePos.snap||titleAlign;
+      const taX=tSnap==='center'?CW/2:tSnap==='left'?PAD:CW-PAD;
+      const tY=curY+titlePos.offsetY;
+      ctx.fillStyle=titleColor; const tw=titleBold===true?700:400; ctx.font=`${tw} ${titleSize}px ${titleFont}`;
+      ctx.textAlign=tSnap; ctx.textBaseline='alphabetic';
+      const tlines=wrapText(ctx,titleTxt.trim(),textW);
+      tlines.forEach(l=>{ctx.fillText(l,taX,tY+tlines.indexOf(l)*titleSize*1.4);});
+      titleBaseY=tY+tlines.length*titleSize*1.4+20;
+      curY=titleBaseY;
+      // 選択枠（デバッグ用は省略）
+    }
+    // 本文（空なら描画しない）
+    if (bodyTxt.trim()) {
+      const bSnap=bodyPos.snap||bodyAlign;
+      const baX=bSnap==='center'?CW/2:bSnap==='left'?PAD:CW-PAD;
+      const bY=titleBaseY+bodyPos.offsetY;
+      ctx.fillStyle=bodyColor; const bw=bodyBold===true?700:400; ctx.font=`${bw} ${bodySize}px ${bodyFont}`;
+      ctx.textAlign=bSnap; ctx.textBaseline='alphabetic';
+      const blines=wrapText(ctx,bodyTxt.trim(),textW);
+      blines.forEach((l,i)=>{ctx.fillText(l,baX,bY+i*bodySize*1.7);});
+    }
+    // 両方空ならガイド
+
+  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,photoSize,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos]);
+
+  useEffect(()=>{render();},[render]);
+
+  // ── crop canvas draw ──
+  const drawCropCanvas=useCallback(()=>{
+    const cc=cropCvRef.current; if(!cc||!img)return;
+    const ctx=cc.getContext('2d');
+    cc.width=img.width; cc.height=img.height;
+    ctx.drawImage(img,0,0);
+    if(!crop||crop.w<5||crop.h<5){
+      ctx.fillStyle='rgba(0,0,0,.28)'; ctx.fillRect(0,0,img.width,img.height);
+      ctx.fillStyle='rgba(255,255,255,.92)';
+      ctx.font=`${Math.max(18,img.width/28)}px sans-serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('ドラッグして範囲を作る',img.width/2,img.height/2);
+      return;
+    }
+    ctx.fillStyle='rgba(0,0,0,.4)'; ctx.fillRect(0,0,img.width,img.height);
+    ctx.clearRect(crop.x,crop.y,crop.w,crop.h);
+    ctx.drawImage(img,crop.x,crop.y,crop.w,crop.h,crop.x,crop.y,crop.w,crop.h);
+    const lw=Math.max(2,img.width/120);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=lw; ctx.strokeRect(crop.x,crop.y,crop.w,crop.h);
+    // 内側に移動ヒント（小さいアイコン）
+    if(crop.w>60&&crop.h>60){
+      ctx.fillStyle='rgba(255,255,255,.55)';
+      ctx.font=`${Math.max(14,Math.min(crop.w,crop.h)/6)}px sans-serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('✦',crop.x+crop.w/2,crop.y+crop.h/2);
+    }
+    const hr=Math.max(18,img.width/18);
+    [[crop.x,crop.y],[crop.x+crop.w,crop.y],[crop.x,crop.y+crop.h],[crop.x+crop.w,crop.y+crop.h]].forEach(([hx,hy])=>{
+      ctx.beginPath();ctx.arc(hx,hy,hr,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,.12)';ctx.lineWidth=lw*.5;ctx.stroke();
+    });
+  },[img,crop]);
+
+  useEffect(()=>{if(showCrop)drawCropCanvas();},[showCrop,drawCropCanvas]);
+
+  // ── crop interactions ──
+  useEffect(()=>{
+    const cc=cropCvRef.current; if(!cc||!showCrop||!img)return;
+    const toImg=(cx,cy)=>{const r=cc.getBoundingClientRect();return{x:(cx-r.left)*(img.width/r.width),y:(cy-r.top)*(img.height/r.height)};};
+    const cl=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+    const HR=Math.max(40,img.width/14);
+    const hitH=(ix,iy)=>{
+      if(!crop||crop.w<5)return null;
+      const pts=[{id:'tl',x:crop.x,y:crop.y},{id:'tr',x:crop.x+crop.w,y:crop.y},{id:'bl',x:crop.x,y:crop.y+crop.h},{id:'br',x:crop.x+crop.w,y:crop.y+crop.h}];
+      for(const h of pts){if(Math.hypot(ix-h.x,iy-h.y)<HR)return h.id;}return null;
+    };
+    const onDown=(cx,cy)=>{
+      const pos=toImg(cx,cy); const d=dragRef.current;
+      const h=hitH(pos.x,pos.y);
+      if(h){d.active=true;d.mode='handle';d.handle=h;d.startX=pos.x;d.startY=pos.y;d.c0={...crop};}
+      else if(crop&&crop.w>10&&pos.x>=crop.x&&pos.x<=crop.x+crop.w&&pos.y>=crop.y&&pos.y<=crop.y+crop.h){
+        d.active=true;d.mode='move';d.handle=null;d.startX=pos.x;d.startY=pos.y;d.c0={...crop};
+      }else{d.active=true;d.mode='new';d.handle=null;d.startX=cl(pos.x,0,img.width);d.startY=cl(pos.y,0,img.height);setCrop({x:d.startX,y:d.startY,w:0,h:0});}
+    };
+    const onMove=(cx,cy)=>{
+      const d=dragRef.current; if(!d.active)return;
+      const pos=toImg(cx,cy); const iw=img.width,ih=img.height,MIN=30;
+      if(d.mode==='move'){
+        const dx=pos.x-d.startX, dy=pos.y-d.startY;
+        const c0=d.c0;
+        setCrop({x:cl(c0.x+dx,0,iw-c0.w),y:cl(c0.y+dy,0,ih-c0.h),w:c0.w,h:c0.h});
+      }else if(d.mode==='new'){
+        const x=cl(Math.min(d.startX,pos.x),0,iw),y=cl(Math.min(d.startY,pos.y),0,ih);
+        setCrop({x,y,w:cl(Math.abs(pos.x-d.startX),0,iw-x),h:cl(Math.abs(pos.y-d.startY),0,ih-y)});
+      }else{
+        const c0=d.c0,dx=pos.x-d.startX,dy=pos.y-d.startY;
+        let{x,y,w,h}=c0;
+        if(d.handle==='tl'){x=cl(c0.x+dx,0,c0.x+c0.w-MIN);y=cl(c0.y+dy,0,c0.y+c0.h-MIN);w=c0.x+c0.w-x;h=c0.y+c0.h-y;}
+        if(d.handle==='tr'){w=cl(c0.w+dx,MIN,iw-c0.x);y=cl(c0.y+dy,0,c0.y+c0.h-MIN);h=c0.y+c0.h-y;}
+        if(d.handle==='bl'){x=cl(c0.x+dx,0,c0.x+c0.w-MIN);w=c0.x+c0.w-x;h=cl(c0.h+dy,MIN,ih-c0.y);}
+        if(d.handle==='br'){w=cl(c0.w+dx,MIN,iw-c0.x);h=cl(c0.h+dy,MIN,ih-c0.y);}
+        setCrop({x,y,w,h});
+      }
+    };
+    const onUp=()=>{dragRef.current.active=false;dragRef.current.handle=null;};
+    const mD=e=>{e.preventDefault();onDown(e.clientX,e.clientY);};
+    const mM=e=>{if(!dragRef.current.active)return;e.preventDefault();onMove(e.clientX,e.clientY);};
+    const tS=e=>{e.preventDefault();e.stopPropagation();const t=e.touches[0];onDown(t.clientX,t.clientY);};
+    const tM=e=>{e.preventDefault();e.stopPropagation();if(!dragRef.current.active)return;const t=e.touches[0];onMove(t.clientX,t.clientY);};
+    cc.addEventListener('mousedown',mD,{passive:false});window.addEventListener('mousemove',mM,{passive:false});window.addEventListener('mouseup',onUp);
+    cc.addEventListener('touchstart',tS,{passive:false});window.addEventListener('touchmove',tM,{passive:false});window.addEventListener('touchend',onUp);
+    return()=>{
+      cc.removeEventListener('mousedown',mD);window.removeEventListener('mousemove',mM);window.removeEventListener('mouseup',onUp);
+      cc.removeEventListener('touchstart',tS);window.removeEventListener('touchmove',tM);window.removeEventListener('touchend',onUp);
+    };
+  },[showCrop,img,crop]);
+
+  const shareImage = async (dataUrl) => {
+    try {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'palette-story.png', { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'palette story' });
+        return;
+      }
+    } catch (err) {
+      console.warn('share failed', err);
+    }
+    setShowSave(dataUrl);
+  };
+
+  // ── save (iPhone Safari対応) ──
+  const save=()=>{
+    // 保存用canvasに1080x1920で再描画
+    const sv=document.createElement('canvas');
+    sv.width=OUT_W; sv.height=OUT_H;
+    const ctx=sv.getContext('2d');
+    ctx.scale(SCALE,SCALE);
+    // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
+    ctx.drawImage(previewRef.current,0,0,CW*2,CH*2,0,0,CW,CH);
+    const dataUrl = sv.toDataURL('image/png');
+    shareImage(dataUrl);
+    // ギャラリーに保存（サムネイル用に小さく）
+    const thumb = document.createElement('canvas');
+    thumb.width=108;thumb.height=192;
+    thumb.getContext('2d').drawImage(sv,0,0,OUT_W,OUT_H,0,0,108,192);
+    const thumbUrl = thumb.toDataURL('image/jpeg',0.7);
+    const entry = {id:Date.now(),date:new Date().toLocaleDateString('ja-JP'),dataUrl,thumbUrl};
+    setGallery(prev=>{
+      const next=[entry,...prev].slice(0,24); // 最大24件
+      try{localStorage.setItem('ps_gallery',JSON.stringify(next));}catch{}
+      return next;
+    });
+  };
+
+
+  // ── UI helpers ──
+  const C={bg:'#F7F3FA',ink:'#3D4458',sub:'#8A90A0',accent:'#C8A8C8',border:'#E7DDEA',panel:'#FFFFFF',accentSoft:'#E8DDF0',cardInk:'#667A8C'};
+  const PBtn=({onClick,disabled,children,full=true,style={}})=>(
+    <button onClick={onClick} disabled={disabled} style={{padding:'10px 13px',background:disabled?'#E0D8E8':'#C8A8C8',color:disabled?'rgba(255,255,255,.6)':'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.8rem',fontWeight:500,cursor:disabled?'default':'pointer',width:full?'100%':'auto',letterSpacing:'.03em',...style}}>{children}</button>
+  );
+  const SBtn=({onClick,active,children,full=true,style={}})=>(
+    <button onClick={onClick} style={{padding:'8px 10px',background:active?'#EEE5F5':'#fff',color:active?'#3D4458':C.cardInk,border:`1.5px solid ${active?'#D9C7E3':C.border}`,borderRadius:4,fontFamily:'inherit',fontSize:'.66rem',cursor:'pointer',width:full?'100%':'auto',transition:'all .12s',...style}}>{children}</button>
+  );
+  const Lbl=({t,sub:s})=>(
+    <div style={{marginBottom:7,marginTop:14,display:'flex',alignItems:'baseline',gap:5}}>
+      <span style={{fontSize:'.58rem',letterSpacing:'.12em',textTransform:'uppercase',color:C.sub}}>{t}</span>
+      {s&&<span style={{fontSize:'.56rem',color:'rgba(138,144,160,.65)',letterSpacing:'.02em'}}>{s}</span>}
+    </div>
+  );
+
+  const TABS=[
+    {id:'photo',label:'Photo',icon:'photo',done:!!img},
+    {id:'color',label:'Color',icon:'color',done:colors.length>0},
+    {id:'card',label:'Card',icon:'card',done:colors.length>0},
+    {id:'title',label:'Title',icon:'title',done:titleTxt.trim().length>0},
+    {id:'body',label:'Body',icon:'body',done:bodyTxt.trim().length>0},
+  ];
+
+  // ── ギャラリー画面 ──
+  if (showGallery) return (
+    <div style={{background:'linear-gradient(180deg,#FBF8FF 0%,#F4EEF9 52%,#FDFBFF 100%)',fontFamily:"'DM Sans','Plus Jakarta Sans',sans-serif",height:'100dvh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{padding:'16px 20px 12px',background:'#fff',borderBottom:'1px solid #E7DDEA',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+        <div>
+          <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:'1.1rem',color:'#3D4458'}}>palette story.</span>
+          <div style={{fontSize:'.58rem',color:'#B8B0C8',letterSpacing:'.08em'}}>create a story from your colors</div>
+        </div>
+        <button onClick={()=>{
+            setShowGallery(false);
+            setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');
+            setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);
+            setTab('photo');
+          }}
+          style={{padding:'10px 20px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
+          ＋ 新しく作る
+        </button>
+      </div>
+      <div style={{flex:1,overflowY:'auto',padding:'16px'}}>
+        {gallery.length===0?(
+          <div style={{textAlign:'center',paddingTop:80,color:'#B8B0C8'}}>
+            <div style={{fontSize:'.9rem',marginBottom:8,color:'#8A90A0'}}>まだ作品がありません</div>
+            <div style={{fontSize:'.66rem'}}>「＋ 新しく作る」から始めよう</div>
+          </div>
+        ):(
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
+            {gallery.map(item=>(
+              <div key={item.id} style={{position:'relative',cursor:'pointer'}}
+                onClick={()=>setGalleryPreview(item)}>
+                <img src={item.thumbUrl} style={{width:'100%',aspectRatio:'9/16',objectFit:'cover',borderRadius:4,display:'block'}}/>
+                <div style={{position:'absolute',bottom:0,left:0,right:0,background:'linear-gradient(transparent,rgba(0,0,0,.5))',borderRadius:'0 0 8px 8px',padding:'12px 4px 4px',fontSize:'.48rem',color:'rgba(255,255,255,.8)',textAlign:'center'}}>{item.date}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {galleryPreview&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(17,17,17,.92)',zIndex:900,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'18px'}}>
+          <img src={galleryPreview.dataUrl} style={{maxWidth:'92%',maxHeight:'76vh',objectFit:'contain',borderRadius:4,boxShadow:'0 12px 40px rgba(0,0,0,.35)'}}/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,width:'100%',maxWidth:360,marginTop:14}}>
+            <button onClick={()=>setGalleryPreview(null)} style={{padding:'11px',border:'none',borderRadius:4,background:'#fff',color:'#3D4458',fontFamily:'inherit',fontWeight:700}}>戻る</button>
+            <button onClick={()=>shareImage(galleryPreview.dataUrl)} style={{padding:'11px',border:'none',borderRadius:4,background:'#C8A8C8',color:'#fff',fontFamily:'inherit',fontWeight:700}}>保存</button>
+            <button onClick={()=>{
+              if(!window.confirm('この作品をギャラリーから削除しますか？')) return;
+              setGallery(prev=>{
+                const next=prev.filter(g=>g.id!==galleryPreview.id);
+                try{localStorage.setItem('ps_gallery',JSON.stringify(next));}catch{}
+                return next;
+              });
+              setGalleryPreview(null);
+            }} style={{padding:'11px',border:'none',borderRadius:4,background:'rgba(255,255,255,.18)',color:'#fff',fontFamily:'inherit',fontWeight:700}}>削除</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return(
+    <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:'100dvh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Caveat:wght@400;600&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap');
+        *{box-sizing:border-box;}
+        select,textarea{padding:9px 11px;border:1.5px solid #E7DDEA;border-radius:4px;font-size:.84rem;font-family:inherit;color:#3D4458;background:#FFFFFF;outline:none;width:100%;resize:none;}
+        select option{background:#fff;color:#3D4458;}
+        select:focus,textarea:focus{border-color:#C8A8C8;}
+        textarea::placeholder{color:#B8B0C8;}
+        textarea{line-height:1.45;}
+        .soft-card{background:#fff;border:1px solid #E8DDF0;border-radius:6px;box-shadow:0 6px 18px rgba(126,94,148,.08);}
+        input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:3px;border-radius:2px;background:#E7DDEA;outline:none;}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#C8A8C8;cursor:pointer;}
+        input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#C8A8C8;cursor:pointer;border:none;}
+      `}</style>
+
+      <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
+
+      {/* ── 全画面プレビュー ── */}
+      <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)'}}
+        onClick={()=>{}}>
+
+        <canvas ref={previewRef} width={CW*2} height={CH*2}
+          style={{height:'100%',width:'auto',aspectRatio:'9/16',display:'block',maxWidth:'100%',touchAction:'none',
+            transform:`scale(${viewScale}) translate(${viewOffset.x/viewScale}px,${viewOffset.y/viewScale}px)`,
+            transformOrigin:'center center'}}
+          onTouchStart={(e)=>{
+            const vt=viewTransform.current;
+            if(e.touches.length===2){
+              vt.pinching=true;vt.dragging=false;
+              const dx=e.touches[0].clientX-e.touches[1].clientX;
+              const dy=e.touches[0].clientY-e.touches[1].clientY;
+              vt.lastDist=Math.sqrt(dx*dx+dy*dy);
+            }else{vt.pinching=false;vt.lastX=e.touches[0].clientX;vt.lastY=e.touches[0].clientY;}
+            e.stopPropagation();
+          }}
+          onTouchMove={(e)=>{
+            e.preventDefault();e.stopPropagation();
+            const vt=viewTransform.current;
+            if(e.touches.length===2&&vt.pinching){
+              const dx=e.touches[0].clientX-e.touches[1].clientX;
+              const dy=e.touches[0].clientY-e.touches[1].clientY;
+              const dist=Math.sqrt(dx*dx+dy*dy);
+              vt.scale=Math.max(0.8,Math.min(4,vt.scale*(dist/vt.lastDist)));
+              vt.lastDist=dist;setViewScale(vt.scale);
+            }else if(e.touches.length===1){
+              const dx=e.touches[0].clientX-vt.lastX;
+              const dy=e.touches[0].clientY-vt.lastY;
+              if(Math.abs(dx)>2||Math.abs(dy)>2)vt.dragging=true;
+              vt.lastX=e.touches[0].clientX;vt.lastY=e.touches[0].clientY;
+              if(vt.dragging){vt.x+=dx;vt.y+=dy;setViewOffset({x:vt.x,y:vt.y});}
+            }
+          }}
+          onTouchEnd={(e)=>{
+            const vt=viewTransform.current;
+            vt.pinching=false;
+            if(!img && !vt.dragging && e.changedTouches && e.changedTouches[0]){
+              const t=e.changedTouches[0];
+              const r=e.currentTarget.getBoundingClientRect();
+              const x=(t.clientX-r.left)/r.width*CW;
+              const y=(t.clientY-r.top)/r.height*CH;
+              const photoW=CW*PHOTO_SIZES[photoSize];
+              const photoH=Math.round(CW*PHOTO_SIZES['L']*0.9);
+              const photoX=(CW-photoW)/2;
+              const photoY=PAD;
+              const HIT=28;
+              if(x>=photoX-HIT && x<=photoX+photoW+HIT && y>=photoY-HIT && y<=photoY+photoH+HIT){
+                fileRef.current?.click();
+              }
+            }
+            setTimeout(()=>{vt.dragging=false;},150);
+          }}
+          onDoubleClick={()=>{const vt=viewTransform.current;vt.scale=1;vt.x=0;vt.y=0;setViewScale(1);setViewOffset({x:0,y:0});}}
+          onClick={(e)=>{
+            e.stopPropagation();
+            if(img) return;
+            const r=e.currentTarget.getBoundingClientRect();
+            const x=(e.clientX-r.left)/r.width*CW;
+            const y=(e.clientY-r.top)/r.height*CH;
+            const photoW=CW*PHOTO_SIZES[photoSize];
+            const photoH=Math.round(CW*PHOTO_SIZES['L']*0.9);
+            const photoX=(CW-photoW)/2;
+            const photoY=PAD;
+            const HIT=28;
+            if(x>=photoX-HIT && x<=photoX+photoW+HIT && y>=photoY-HIT && y<=photoY+photoH+HIT){
+              fileRef.current?.click();
+            }
+          }}
+        />
+        {/* 写真未選択時：写真枠だけを確実にタップ可能にする */}
+        {!img&&(
+          <label
+            htmlFor="photoInput"
+            onClick={(e)=>{e.stopPropagation();}}
+            onTouchStart={(e)=>{e.stopPropagation();}}
+            style={{
+              position:'absolute',
+              left:'50%',
+              top:'8%',
+              transform:'translateX(-50%)',
+              width:'82%',
+              height:'55%',
+              maxWidth:'390px',
+              background:'transparent',
+              border:'none',
+              cursor:'pointer',
+              zIndex:20,
+              display:'block',
+              WebkitTapHighlightColor:'transparent',
+              touchAction:'manipulation'
+            }}
+            aria-label="写真を追加"
+          />
+        )}
+
+
+
+
+
+        {/* ロゴ＋アクション（上部オーバーレイ） */}
+        <div style={{position:'absolute',top:0,left:0,right:0,padding:'10px 14px',background:'linear-gradient(to bottom,rgba(247,243,250,.96),rgba(247,243,250,.38),transparent)',display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
+          <span style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'1rem',color:'#3D4458',letterSpacing:'.01em',opacity:.95}}>
+            palette story.
+          </span>
+          <div style={{display:'flex',gap:6,pointerEvents:'auto',alignItems:'center'}}>
+            <button aria-label="Home" onClick={(e)=>{e.stopPropagation();setShowGallery(true);}}
+              style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              <SolidIcon name="home" size={16}/>
+            </button>
+            <button aria-label="How to" onClick={(e)=>{e.stopPropagation();setShowHowTo(true);}}
+              style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              <SolidIcon name="bulb" size={16}/>
+            </button>
+            <button aria-label="Reset" onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});}}}
+              style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              <SolidIcon name="reset" size={16}/>
+            </button>
+            {img&&(
+              <button onClick={()=>setShowFullPreview(true)}
+                style={{height:34,padding:'0 10px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+                <SolidIcon name="eye" size={14}/> Preview
+              </button>
+            )}
+            {img&&colors.length>0&&(
+              <button onClick={save}
+                style={{height:34,padding:'0 10px',display:'inline-flex',alignItems:'center',gap:5,background:'#C8A8C8',color:'#fff',border:'1px solid #C8A8C8',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.16)'}}>
+                <SolidIcon name="save" size={14}/> Save
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      <div style={{position:'fixed',left:0,right:0,bottom:0,height:'calc(env(safe-area-inset-bottom, 0px) + 78px)',background:'#FFFFFF',zIndex:70,pointerEvents:'none'}} />
+
+      {/* ── Bottom Tab Bar + Sheet ── */}
+      <div style={{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:'calc(env(safe-area-inset-bottom, 0px) + 4px)',width:'100%',maxWidth:480,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',position:'fixed',zIndex:80,boxShadow:'0 -10px 28px rgba(126,94,148,.13)'}}>
+
+        {/* シートパネル：タブバーの上にabsoluteで展開 */}
+        {tab&&(
+          <div style={{
+            position:'absolute',bottom:'100%',left:0,right:0,
+            background:'#FFFFFF',borderTop:'1px solid #E7DDEA',
+            borderBottom:'1px solid #E7DDEA',
+            overflowY:(tab==='title'||tab==='body')?'auto':'visible',
+            maxHeight:(tab==='title'||tab==='body')?'38dvh':'none',
+            WebkitOverflowScrolling:'touch',
+            padding:'7px 18px 10px',
+            zIndex:10,
+          }}>
+            <div style={{width:32,height:3,background:'#D9C7E3',borderRadius:2,margin:'0 auto 12px'}}/>
+            {tab==='photo'&&(
+              <div>
+                {!img?(
+                  <div style={{paddingTop:8,textAlign:'center',color:'#8A90A0',fontSize:'.74rem'}}>
+                    ＋ をタップして写真を追加
+                  </div>
+                ):(
+                  <>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:8}}>
+                      <SBtn onClick={()=>fileRef.current.click()} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>写真を変える</SBtn>
+                      <SBtn onClick={()=>{if(img){setCrop(null);setShowCrop(true);}}} active={fitMode==='trim'&&!!finalCrop} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>トリミング</SBtn>
+                      <SBtn onClick={()=>{setFitMode('contain');setFinalCrop(null);}} active={fitMode==='contain'} full={false} style={{width:'100%',fontSize:'.74rem',padding:'8px 4px'}}>そのまま</SBtn>
+                    </div>
+                    <Lbl t="Size" sub="写真サイズ"/>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+                      {[['S','Small'],['M','Medium'],['L','Large']].map(([k,l])=><SBtn key={k} active={photoSize===k} onClick={()=>setPhotoSize(k)}>{l}</SBtn>)}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {tab==='color'&&(
+              <div>
+                {!pixels.length?(
+                  <div style={{paddingTop:8,textAlign:'center',color:'#8A90A0',fontSize:'.74rem'}}>先に写真を選択してください</div>
+                ):(
+                  <>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+                      <PBtn onClick={doExtract} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.74rem'}}>色を抽出する</PBtn>
+                      <SBtn onClick={doRetry} full={false} style={{width:'100%',padding:'8px 8px',fontSize:'.72rem',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,textTransform:'lowercase'}}><SolidIcon name="shuffle" size={14}/> retry</SBtn>
+                    </div>
+                    {colors.length>0&&(
+                      <>
+                        {/* 最新カラー＋履歴 4列グリッド */}
+                        <div style={{marginBottom:10}}>
+                          <div style={{fontSize:'.52rem',letterSpacing:'.08em',color:'#8A90A0',textTransform:'uppercase',marginBottom:6}}>Colors & history</div>
+                          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5}}>
+                            {colors.length===3&&(
+                              <button onClick={()=>{}} style={{padding:0,background:'none',border:'2px solid #C8A8C8',borderRadius:2,cursor:'default',overflow:'visible',minHeight:29}}>
+                                <div style={{fontSize:'.46rem',color:'#B685C1',fontWeight:900,letterSpacing:'.08em',lineHeight:1,marginBottom:4,textAlign:'left'}}>new</div>
+                                <div style={{display:'flex',height:20,borderRadius:1,overflow:'hidden'}}>
+                                  {colors.map(hex=>(<div key={hex} style={{flex:1,background:hex}}/>))}
+                                </div>
+                              </button>
+                            )}
+                            {colorHistory.slice(0,11).map((h,i)=>(
+                              <button key={h.key||i} onClick={()=>{setColors(h.colors);setBgColor(h.bg);setSelBg(h.bg);}}
+                                style={{padding:0,background:'none',border:`2px solid ${h.colors.join(',')===colors.join(',')?'#C8A8C8':'transparent'}`,borderRadius:2,cursor:'pointer',overflow:'visible',minHeight:29}}>
+                                <div style={{fontSize:'.46rem',color:'#8C8199',fontWeight:900,letterSpacing:'.08em',lineHeight:1,marginBottom:4,textAlign:'left'}}>{String(i+1).padStart(3,'0')}</div>
+                                <div style={{display:'flex',height:20,borderRadius:1,overflow:'hidden'}}>
+                                  {h.colors.map(hex=>(<div key={hex} style={{flex:1,background:hex}}/>))}
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* 背景色 */}
+                        <div style={{marginBottom:6}}>
+                          <div style={{fontSize:'.52rem',letterSpacing:'.08em',color:'#8A90A0',textTransform:'uppercase',marginBottom:5}}>Background 背景色</div>
+                          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                            <div style={{display:'flex',gap:4}}>
+                              {bgSugs.map(hex=>(
+                                <div key={hex} onClick={()=>{setSelBg(hex);setBgColor(hex);}}
+                                  style={{width:26,height:26,background:hex,borderRadius:5,border:`2px solid ${selBg===hex?'#C8A8C8':'transparent'}`,cursor:'pointer'}}/>
+                              ))}
+                            </div>
+                            <div style={{flex:1,position:'relative'}}>
+                              <div style={{display:'flex',alignItems:'center',gap:5,padding:'5px 8px',background:'#F7F3FA',borderRadius:4,border:'1px solid #E7DDEA'}}>
+                                <div style={{width:18,height:18,borderRadius:4,background:bgColor,border:'1px solid #E7DDEA',flexShrink:0}}/>
+                                <span style={{fontSize:'.58rem',fontFamily:'monospace',color:'#3D4458'}}>{bgColor}</span>
+                              </div>
+                              <input type="color" value={bgColor} onChange={e=>{setBgColor(e.target.value);setSelBg(null);}} style={{position:'absolute',inset:0,opacity:0,width:'100%',height:'100%',cursor:'pointer'}}/>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+            {tab==='card'&&(
+              <div>
+                <Lbl t="Style" sub="スタイル"/>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:7,marginBottom:10}}>
+                  {[['minimal','Minimal\nChip'],['pantone','Color\nTag'],['slim','Slim\nLabel']].map(([v,l])=>(
+                    <SBtn key={v} active={cardStyle===v} onClick={()=>setCardStyle(v)} full={false} style={{width:'100%',whiteSpace:'pre-line',lineHeight:1.3,padding:'9px 4px'}}>{l}</SBtn>
+                  ))}
+                </div>
+                <Lbl t="Position" sub="左右位置"/>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:7,marginBottom:10}}>
+                  {[['left','Left'],['center','Center'],['right','Right']].map(([v,l])=>(
+                    <SBtn key={v} active={cardAlign===v} onClick={()=>setCardAlign(v)}>{l}</SBtn>
+                  ))}
+                </div>
+                <Lbl t="Card Size" sub={`${cardScale}%`}/>
+                <input type="range" min={70} max={120} value={cardScale} onInput={e=>setCardScale(Number(e.target.value))} onChange={e=>setCardScale(Number(e.target.value))} style={{marginBottom:8}}/>
+                {colors.length===0&&<div style={{padding:'9px',background:'rgba(255,255,255,.05)',borderRadius:4,color:'rgba(255,255,255,.3)',fontSize:'.74rem',textAlign:'center',marginTop:6}}>先に色を抽出してください</div>}
+              </div>
+            )}
+
+            {tab==='title'&&(
+              <div>
+                <div style={{background:'#FBF7FD',borderRadius:6,padding:'8px',marginBottom:8,border:'1px solid #E8DDF0'}}>
+                  <div style={{fontSize:'.5rem',letterSpacing:'.12em',textTransform:'uppercase',color:'#8A90A0',marginBottom:6}}>Title Ideas タイトル提案</div>
+                  <div style={{display:'flex',gap:6,marginBottom:showSugg?8:0}}>
+                    <PBtn onClick={genSugg} style={{flex:1,padding:'7px 9px',fontSize:'.72rem'}}>タイトルを提案</PBtn>
+                    <button onClick={()=>setTitleLang(l=>l==='ja'?'en':'ja')}
+                    style={{display:'grid',gridTemplateColumns:'1fr 1fr',alignItems:'center',borderRadius:499,overflow:'hidden',border:'1px solid #E8DDF0',background:'#F7F3FA',flexShrink:0,cursor:'pointer',fontFamily:'inherit',fontSize:'.62rem',fontWeight:800,padding:2,minWidth:64}}>
+                    <span style={{padding:'5px 7px',borderRadius:499,textAlign:'center',background:titleLang==='ja'?'#C8A8C8':'transparent',color:titleLang==='ja'?'#fff':'#8A90A0',transition:'all .15s'}}>JP</span>
+                    <span style={{padding:'5px 7px',borderRadius:499,textAlign:'center',background:titleLang==='en'?'#C8A8C8':'transparent',color:titleLang==='en'?'#fff':'#8A90A0',transition:'all .15s'}}>EN</span>
+                  </button>
+                  </div>
+                  {showSugg&&(
+                    <div style={{marginTop:6,display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                      {suggestions.map((item,i)=>{
+                    const t=typeof item==='object'?item.title:item;
+                    const ja=typeof item==='object'?item.ja:'';
+                    return(
+                      <button key={i} onClick={()=>{setTitleTxt(t);setShowSugg(false);}}
+                        style={{display:'block',width:'100%',padding:'7px 9px',marginBottom:0,background:'#F7F3FA',border:'1px solid #E7DDEA',borderRadius:4,textAlign:'left',cursor:'pointer',fontFamily:'inherit'}}>
+                        <div style={{fontSize:'.76rem',color:'#3D4458',fontWeight:600}}>{t}</div>
+                        {ja&&<div style={{fontSize:'.56rem',color:'#8A90A0',marginTop:1,lineHeight:1.25}}>{ja}</div>}
+                      </button>
+                    );
+                  })
+                  }
+                  <button onClick={genSugg} style={{display:'block',width:'100%',gridColumn:'1 / -1',padding:'5px',marginTop:1,background:'none',border:'none',fontSize:'.62rem',cursor:'pointer',fontFamily:'inherit',color:'#8A90A0',textAlign:'center'}}>もう一度</button>
+                </div>
+              )}
+            </div>
+            <textarea
+            rows={2} placeholder="タイトル…" value={titleTxt} onChange={e=>setTitleTxt(e.target.value)} style={{marginBottom:8}}/>
+            <select value={titleFont} onChange={e=>setTitleFont(e.target.value)} style={{marginBottom:7}}>
+              {FONTS.map((f,i)=><option key={i} value={f.value||''} disabled={f.disabled}>{f.label}</option>)}
+            </select>
+            <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:8}}>
+              <span style={{fontSize:'.58rem',color:'#8A90A0',flexShrink:0}}>{titleSize}px</span>
+              <input type="range" min={16} max={44} value={titleSize} onInput={e=>setTitleSize(Number(e.target.value))} onChange={e=>setTitleSize(Number(e.target.value))} style={{flex:1}}/>
+              <input type="color" value={titleColor} onChange={e=>setTitleColor(e.target.value)} style={{width:28,height:28,border:'1px solid #E7DDEA',borderRadius:3,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
+              <button onClick={()=>setTitleBold(false)} style={{padding:'6px 0',background:!titleBold?'#EEE5F5':'#fff',color:!titleBold?'#3D4458':'#8A90A0',border:`1.5px solid ${!titleBold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',cursor:'pointer'}}>
+                <div style={{fontSize:'.7rem',fontWeight:800,lineHeight:1.1}}>Regular</div>
+                <div style={{fontSize:'.48rem',fontWeight:700,opacity:.72,lineHeight:1.15,marginTop:2}}>標準</div>
+              </button>
+              <button onClick={()=>setTitleBold(true)} style={{padding:'6px 0',background:titleBold?'#EEE5F5':'#fff',color:titleBold?'#3D4458':'#8A90A0',border:`1.5px solid ${titleBold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',cursor:'pointer'}}>
+                <div style={{fontSize:'.7rem',fontWeight:900,lineHeight:1.1}}>Bold</div>
+                <div style={{fontSize:'.48rem',fontWeight:700,opacity:.72,lineHeight:1.15,marginTop:2}}>太字</div>
+              </button>
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>
+              {[['left','Left'],['center','Center'],['right','Right']].map(([v,l])=>(
+                <button key={v} onClick={()=>{setTitleAlign(v);setTitlePos(p=>({...p,snap:v}));}} style={{padding:'8px 0',background:titleAlign===v?'#EEE5F5':'#fff',color:titleAlign===v?'#3D4458':'#8A90A0',border:`1.5px solid ${titleAlign===v?'#D9C7E3':'#E7DDEA'}`,borderRadius:4,fontFamily:'inherit',fontSize:'.74rem',cursor:'pointer'}}>{l}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+            {tab==='body'&&(
+              <div>
+                <textarea rows={3} placeholder={"ひとこと、日付、ハッシュタグなど…"} value={bodyTxt} onChange={e=>setBodyTxt(e.target.value)} style={{marginBottom:8}}/>
+                <select value={bodyFont} onChange={e=>setBodyFont(e.target.value)} style={{marginBottom:7}}>
+                  {FONTS.map((f,i)=><option key={i} value={f.value||''} disabled={f.disabled}>{f.label}</option>)}
+                </select>
+                <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:8}}>
+                  <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0}}>{bodySize}px</span>
+                  <input type="range" min={11} max={28} value={bodySize} onInput={e=>setBodySize(Number(e.target.value))} onChange={e=>setBodySize(Number(e.target.value))} style={{flex:1}}/>
+                  <input type="color" value={typeof bodyColor==='string'&&bodyColor.startsWith('#')?bodyColor:'#fff'} onChange={e=>setBodyColor(e.target.value)} style={{width:26,height:26,border:'1px solid rgba(255,255,255,.2)',borderRadius:5,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
+                  <button onClick={()=>setBodyBold(false)} style={{padding:'6px 0',background:!bodyBold?'#EEE5F5':'#fff',color:!bodyBold?'#3D4458':'#8A90A0',border:`1.5px solid ${!bodyBold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',cursor:'pointer',transition:'all .15s'}}>
+                    <div style={{fontSize:'.7rem',fontWeight:800,lineHeight:1.1}}>Regular</div>
+                    <div style={{fontSize:'.48rem',fontWeight:700,opacity:.72,lineHeight:1.15,marginTop:2}}>標準</div>
+                  </button>
+                  <button onClick={()=>setBodyBold(true)} style={{padding:'6px 0',background:bodyBold?'#EEE5F5':'#fff',color:bodyBold?'#3D4458':'#8A90A0',border:`1.5px solid ${bodyBold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',cursor:'pointer',transition:'all .15s'}}>
+                    <div style={{fontSize:'.7rem',fontWeight:900,lineHeight:1.1}}>Bold</div>
+                    <div style={{fontSize:'.48rem',fontWeight:700,opacity:.72,lineHeight:1.15,marginTop:2}}>太字</div>
+                  </button>
+                </div>
+                <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginBottom:10}}>
+                  {[['left','Left'],['center','Center'],['right','Right']].map(([v,l])=>(
+                    <button key={v} onClick={()=>{setBodyAlign(v);setBodyPos(p=>({...p,snap:v}));}} style={{padding:'8px 0',background:bodyAlign===v?'#EEE5F5':'#fff',color:bodyAlign===v?'#3D4458':'#8A90A0',border:`1.5px solid ${bodyAlign===v?'#D9C7E3':'#E7DDEA'}`,borderRadius:4,fontFamily:'inherit',fontSize:'.74rem',cursor:'pointer'}}>{l}</button>
+                  ))}
+                </div>
+                <Lbl t="Position" sub={`+${textOffset}px`}/>
+                <input type="range" min={0} max={80} value={textOffset} onInput={e=>setTextOffset(Number(e.target.value))} onChange={e=>setTextOffset(Number(e.target.value))} style={{marginBottom:10}}/>
+                {colors.length>0&&(
+                  <>
+                    <Lbl t="Color" sub="写真から色選択"/>
+                    <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:4}}>
+                      {[...colors,...bgSugs,'#3D4458','#FFFFFF'].map((hex,i)=>(
+                        <div key={i} onClick={()=>{setTitleColor(hex);setBodyColor(hex);}} style={{width:26,height:26,background:hex,border:'1px solid #E7DDEA',cursor:'pointer'}} title={hex}/>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* タブ一覧（常に表示） */}
+        <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:0}}>
+          {TABS.map(({id,label,icon,done})=>(
+            <button key={id} onClick={()=>setTab(tab===id?null:id)}
+              style={{padding:'7px 0 6px',border:'none',background:tab===id?'#F2E9F6':'#fff',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:3,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`,color:tab===id?'#3D4458':'#8A90A0'}}>
+              <div style={{position:'relative',height:15,display:'grid',placeItems:'center'}}>
+                <SolidIcon name={icon} size={14} color={tab===id?'#3D4458':'#A9A2B3'}/>
+                {done&&tab!==id&&<span style={{position:'absolute',right:-8,top:-4,fontSize:'.42rem',color:'#C8A8C8',fontWeight:900,lineHeight:1}}>✓</span>}
+              </div>
+              <span style={{fontSize:'.62rem',fontWeight:tab===id?800:600,letterSpacing:'.01em'}}>{label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* How to モーダル */}
+      {showHowTo&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}
+          onClick={()=>setShowHowTo(false)}>
+          <div style={{width:'100%',maxWidth:360,background:'#fff',borderRadius:4,padding:'24px',maxHeight:'80vh',overflowY:'auto'}}
+            onClick={e=>e.stopPropagation()}>
+            <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:700,fontSize:'1.05rem',color:'#3D4458',marginBottom:14}}>How to use</div>
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
+              <b style={{color:'#3D4458'}}> Photo</b> — 写真を選択<br/>
+              <b style={{color:'#3D4458'}}> Color</b> — 色を抽出・背景色を選ぶ<br/>
+              <b style={{color:'#3D4458'}}> Card</b> — カラーカードのスタイルを選ぶ<br/>
+              <b style={{color:'#3D4458'}}> Title</b> — タイトルを入力または提案から選ぶ<br/>
+              <b style={{color:'#3D4458'}}> Body</b> — 本文・日付などを入力<br/>
+              <b style={{color:'#3D4458'}}> Save</b> — 画像を保存
+            </div>
+            <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>プレビューの操作</div>
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
+              ピンチで拡大縮小、ドラッグで移動<br/>
+              ダブルタップで元のサイズに戻る<br/>
+              タブをタップで編集パネルを開閉
+            </div>
+            <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>全画面で使う方法</div>
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
+              1. Safari下部の共有ボタン（↑）をタップ<br/>
+              2. 「ホーム画面に追加」を選択<br/>
+              3. 「追加」→ アプリとして使える！
+            </div>
+            <div style={{background:'#FFF8E7',border:'1px solid #F0E0C0',borderRadius:4,padding:'12px',fontSize:'.75rem',lineHeight:1.7,color:'#8A7A60',marginBottom:16}}>
+              ! 作品履歴はこのデバイスのSafariに保存されます。「Webサイトデータを消去」すると削除されます。
+            </div>
+            <button onClick={()=>setShowHowTo(false)}
+              style={{width:'100%',padding:'12px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Full Preview modal */}
+      {showFullPreview&&(
+        <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',zIndex:400}}>
+          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',padding:'16px 12px 8px'}}>
+            <canvas
+              width={CW*2} height={CH*2}
+              ref={el=>{
+                if(!el||!previewRef.current)return;
+                requestAnimationFrame(()=>{
+                  if(!previewRef.current)return;
+                  el.width=CW*2;el.height=CH*2;
+                  const ctx=el.getContext('2d');
+                  ctx.drawImage(previewRef.current,0,0,CW*2,CH*2);
+                });
+              }}
+              style={{maxWidth:'100%',maxHeight:'100%',aspectRatio:'9/16',display:'block',boxShadow:'0 0 30px rgba(0,0,0,.6)'}}
+            />
+          </div>
+          <div style={{flexShrink:0,padding:'12px 20px 40px',display:'flex',justifyContent:'center'}}>
+            <button onClick={()=>setShowFullPreview(false)}
+              style={{padding:'14px 48px',background:'#fff',color:'#3D4458',border:'none',borderRadius:30,fontFamily:'inherit',fontSize:'1rem',fontWeight:600,cursor:'pointer',boxShadow:'0 2px 12px rgba(0,0,0,.3)'}}>
+              ✕ 閉じる
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Crop modal */}
+      {showCrop&&img&&(
+        <div style={{position:'fixed',inset:0,background:'#111',display:'flex',flexDirection:'column',zIndex:300,touchAction:'none'}}>
+          <div style={{padding:'14px 20px',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+            <span style={{color:'#fff',fontFamily:"'DM Sans','Plus Jakarta Sans',sans-serif",fontWeight:600,fontSize:'1rem'}}>トリミング</span>
+            <span style={{color:'rgba(255,255,255,.38)',fontSize:'.62rem',letterSpacing:'.07em'}}>ドラッグして枠を作成</span>
+          </div>
+          <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',minHeight:0}}>
+            <canvas ref={cropCvRef} style={{maxWidth:'100%',maxHeight:'100%',display:'block',touchAction:'none'}}/>
+          </div>
+          <div style={{padding:'14px 20px',display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,flexShrink:0}}>
+            <button onClick={()=>{setFitMode('contain');setFinalCrop(null);setShowCrop(false);}}
+              style={{padding:'13px',border:'1px solid rgba(255,255,255,.2)',borderRadius:4,background:'transparent',color:'rgba(255,255,255,.7)',fontSize:'.84rem',cursor:'pointer',fontFamily:'inherit'}}>
+              そのまま使う
+            </button>
+            <button onClick={()=>{if(crop&&crop.w>10){setFinalCrop(crop);setFitMode('trim');setShowCrop(false);}}}
+              disabled={!crop||crop.w<10}
+              style={{padding:'13px',background:crop&&crop.w>10?'#fff':'rgba(255,255,255,.15)',color:crop&&crop.w>10?'#1A1A1A':'rgba(255,255,255,.3)',border:'none',borderRadius:4,fontSize:'.84rem',cursor:crop&&crop.w>10?'pointer':'default',fontFamily:'inherit',fontWeight:500}}>
+              Apply ✓
+            </button>
+          </div>
+        </div>
+      )}
+
+      <canvas ref={hiddenRef} style={{display:'none'}}/>
+    </div>
+  );
+}
+
+const root=ReactDOM.createRoot(document.getElementById('root'));
+root.render(<PaletteStory/>);
+</script>
+</body>
+</html>
