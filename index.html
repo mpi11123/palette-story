@@ -224,12 +224,26 @@ function getHue([r,g,b]) {
 function getSat([r,g,b]) { const mx=Math.max(r,g,b),mn=Math.min(r,g,b);return mx===0?0:(mx-mn)/mx; }
 function getBr([r,g,b]) { return (r*299+g*587+b*114)/1000; }
 
+function rgbInfo([r,g,b]) {
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
+  const hue=Math.round(getHue([r,g,b])*360);
+  const sat=mx===0?0:(mx-mn)/mx;
+  const br=getBr([r,g,b]);
+  const light=(mx+mn)/2;
+  return {h:hue,s:sat,br,light};
+}
+function hueDiff(a,b){const d=Math.abs(a-b);return Math.min(d,360-d);}
+function toneDistance(a,b){
+  const ia=rgbInfo(a), ib=rgbInfo(b);
+  return hueDiff(ia.h,ib.h)*2.2 + Math.abs(ia.light-ib.light)*0.55 + Math.abs(ia.s-ib.s)*80;
+}
+
 function pick3(px, strategy=0) {
   if (!px.length) return [];
 
-  // 改善版：平均色に寄りすぎないよう、アクセント色・彩度・面積のバランスで選ぶ
-  const sample = px.filter((_, i) => i % 3 === 0);
-  const centers = kmeans(sample, 14, strategy * 9 + 3);
+  // くすみ・同系色に寄りすぎないように、面積・彩度・明度・色相のバランスで選ぶ
+  const sample = px.filter((_, i) => i % 2 === 0);
+  const centers = kmeans(sample, 18, strategy * 11 + 5);
 
   const clusterCount = centers.map(c => ({ c, n: 0 }));
   for (const p of sample) {
@@ -242,125 +256,126 @@ function pick3(px, strategy=0) {
   }
 
   const total = Math.max(1, sample.length);
-  const scored = clusterCount.map(({c,n}) => {
-    const sat = getSat(c);
-    const br = getBr(c);
-    const area = n / total;
-    const midLight = 1 - Math.abs(br - 145) / 145;
-    const accent = sat * 1.9 + midLight * 0.35;
-    const score = accent + Math.sqrt(area) * 0.65;
-    return { c, sat, br, area, score };
-  })
-  // 真っ白・真っ黒すぎる色は優先度を下げる。ただし候補からは消さない
-  .map(o => ({...o, score: o.score - (o.br > 238 || o.br < 24 ? 0.7 : 0)}))
-  .sort((a,b) => b.score - a.score);
+  let scored = clusterCount.map(({c,n}) => {
+    const info=rgbInfo(c);
+    const area=n/total;
+    const tooWhite=info.br>242 && info.s<.12;
+    const tooBlack=info.br<24;
+    const midLight=1-Math.min(1,Math.abs(info.br-150)/150);
+    const accentBoost=info.s*2.25 + (info.s>.45?0.65:0);
+    const areaBoost=Math.sqrt(area)*0.85;
+    const score=accentBoost + areaBoost + midLight*.28 - (tooWhite||tooBlack?1.0:0);
+    return {c,area,score,info};
+  }).filter(o=>o.area>.002).sort((a,b)=>b.score-a.score);
 
-  // strategyごとに少し選び方を変える
-  let pool = scored;
-  if (strategy % 4 === 1) pool = scored.slice().sort((a,b)=>b.sat-a.sat || b.area-a.area);
-  if (strategy % 4 === 2) pool = scored.slice().sort((a,b)=>Math.abs(150-a.br)-Math.abs(150-b.br));
-  if (strategy % 4 === 3) pool = scored.slice().sort((a,b)=>b.area-a.area || b.sat-a.sat);
+  // retryごとに少し観点を変える
+  if (strategy % 4 === 1) scored=scored.slice().sort((a,b)=>b.info.s-a.info.s || b.score-a.score);
+  if (strategy % 4 === 2) scored=scored.slice().sort((a,b)=>b.area-a.area || b.info.s-a.info.s);
+  if (strategy % 4 === 3) scored=scored.slice().sort((a,b)=>Math.abs(150-a.info.br)-Math.abs(150-b.info.br) || b.info.s-a.info.s);
 
-  const sel=[];
-  for (const o of pool) {
-    if (sel.length >= 3) break;
-    const c = o.c;
-    const tooClose = sel.some(s => {
-      const hd = Math.min(Math.abs(getHue(c)-getHue(s)), 1-Math.abs(getHue(c)-getHue(s)));
-      return dist(c,s) < 1800 || hd < 0.055;
-    });
-    if (!tooClose) sel.push(c);
+  const selected=[];
+  const isTooSimilar=(c)=>selected.some(s=>{
+    const a=rgbInfo(c), b=rgbInfo(s);
+    return hueDiff(a.h,b.h)<18 && Math.abs(a.light-b.light)<34 && Math.abs(a.s-b.s)<.22;
+  });
+
+  // まず高彩度アクセントを1色優先
+  const accent=scored.find(o=>o.info.s>.42 && o.info.br>55 && o.info.br<235);
+  if(accent) selected.push(accent.c);
+
+  // 次に、色相・明度が被りにくいものを追加
+  for (const o of scored) {
+    if(selected.length>=3) break;
+    if(selected.includes(o.c)) continue;
+    if(isTooSimilar(o.c)) continue;
+    selected.push(o.c);
   }
-  for (const o of pool) { if(sel.length>=3) break; if(!sel.includes(o.c)) sel.push(o.c); }
 
-  // 彩度をほんの少しだけ整える。くすみすぎを防ぐが、写真の雰囲気は壊さない
-  return sel.slice(0,3).map(([r,g,b]) => {
+  // まだ足りない場合はトーン距離が遠い順に補充
+  for (const o of scored) {
+    if(selected.length>=3) break;
+    if(selected.includes(o.c)) continue;
+    const minD=selected.length?Math.min(...selected.map(s=>toneDistance(o.c,s))):999;
+    if(minD>28) selected.push(o.c);
+  }
+  for (const o of scored) { if(selected.length>=3) break; if(!selected.includes(o.c)) selected.push(o.c); }
+
+  // ほんの少しだけ彩度を整える
+  return selected.slice(0,3).map(([r,g,b]) => {
     const mx=Math.max(r,g,b), mn=Math.min(r,g,b);
     if (mx===0 || mx===mn) return toHex(r,g,b);
     const sat=(mx-mn)/mx;
-    const boost=Math.min(1, sat + 0.10);
+    const boost=Math.min(1, sat + (sat<.35?.16:.08));
     const scale=boost/sat;
-    return toHex(
-      mx - (mx-r)*scale,
-      mx - (mx-g)*scale,
-      mx - (mx-b)*scale
-    );
+    return toHex(mx-(mx-r)*scale, mx-(mx-g)*scale, mx-(mx-b)*scale);
   });
 }
 
-function colorName(hex) {
+function colorName(hex, usedNames=null) {
   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
   const br=getBr([r,g,b]), sat=getSat([r,g,b]);
   const h=Math.round(getHue([r,g,b])*360);
+  const pick=(list)=>{
+    if(!usedNames) return list[0];
+    const found=list.find(n=>!usedNames.has(n));
+    const name=found||list[0];
+    usedNames.add(name);
+    return name;
+  };
 
-  // palette story 専用の色名。Hue / Saturation / Brightness で分岐して、
-  // #F54871 のような鮮やかなピンクが TERRA COTTA にならないようにする。
   if (sat < .08) {
-    if (br > 232) return 'IVORY';
-    if (br > 175) return 'MIST';
-    if (br > 95) return 'STONE';
-    return 'INK';
+    if (br > 232) return pick(['IVORY','MILK','CLOUD']);
+    if (br > 175) return pick(['MIST','FOG','ASH']);
+    if (br > 95) return pick(['STONE','SMOKE','TAUPE']);
+    return pick(['INK','CHARCOAL','NOIR']);
   }
 
-  // red / pink
-  if (h >= 340 || h < 12) {
-    if (sat > .58 && br > 110) return 'BERRY';
-    if (br > 205) return 'BLUSH';
-    if (br > 140) return 'ROSE';
-    return 'CRIMSON';
+  if (h >= 338 || h < 12) {
+    if (sat > .58 && br > 110) return pick(['BERRY','RASPBERRY','CHERRY']);
+    if (br > 205) return pick(['BLUSH','ROSE','PETAL']);
+    if (br > 140) return pick(['ROSE','BERRY','CORAL']);
+    return pick(['CRIMSON','WINE','CHERRY']);
   }
   if (h < 28) {
-    if (sat > .62 && br > 140) return 'CORAL';
-    if (br > 185) return 'PEACH';
-    return 'CINNAMON';
+    if (sat > .62 && br > 140) return pick(['CORAL','FLAMINGO','APRICOT']);
+    if (br > 185) return pick(['PEACH','APRICOT','CORAL']);
+    return pick(['CINNAMON','RUST','CLAY']);
   }
-
-  // orange / brown
   if (h < 52) {
-    if (br > 205) return 'BUTTER';
-    if (sat < .35 && br > 150) return 'LATTE';
-    if (br > 120) return 'CARAMEL';
-    return 'COCOA';
+    if (br > 205) return pick(['BUTTER','CREAM','VANILLA']);
+    if (sat < .35 && br > 150) return pick(['LATTE','BISCUIT','OAT']);
+    if (br > 120) return pick(['CARAMEL','CINNAMON','HONEY']);
+    return pick(['COCOA','WALNUT','MOCHA']);
   }
-
-  // yellow
   if (h < 76) {
-    if (br > 205) return 'LEMON';
-    if (sat > .45) return 'HONEY';
-    return 'SAND';
+    if (br > 205) return pick(['LEMON','BUTTER','CREAM']);
+    if (sat > .45) return pick(['HONEY','MUSTARD','GOLD']);
+    return pick(['SAND','OAT','WHEAT']);
   }
-
-  // green
   if (h < 165) {
-    if (br > 205 && sat < .45) return 'MINT';
-    if (br > 185) return 'SAGE';
-    if (sat > .45 && br > 120) return 'OLIVE';
-    if (br > 95) return 'MOSS';
-    return 'FOREST';
+    if (br > 205 && sat < .45) return pick(['MINT','SAGE','PISTACHIO']);
+    if (br > 185) return pick(['SAGE','MINT','FERN']);
+    if (sat > .45 && br > 120) return pick(['OLIVE','FERN','HERB']);
+    if (br > 95) return pick(['MOSS','OLIVE','FOREST']);
+    return pick(['FOREST','MOSS','PINE']);
   }
-
-  // blue / cyan
   if (h < 255) {
-    if (br > 215) return 'ICE';
-    if (br > 185) return 'SKY';
-    if (sat < .35 && br > 125) return 'DENIM';
-    if (br > 95) return 'BLUE';
-    return 'NAVY';
+    if (br > 215) return pick(['ICE','POWDER','CLOUD']);
+    if (br > 185) return pick(['SKY','ICE','MIST']);
+    if (sat < .35 && br > 125) return pick(['DENIM','SLATE','DUSK']);
+    if (br > 95) return pick(['BLUE','DENIM','OCEAN']);
+    return pick(['NAVY','INDIGO','MIDNIGHT']);
   }
-
-  // purple
   if (h < 305) {
-    if (br > 210) return 'LILAC';
-    if (br > 170) return 'LAVENDER';
-    if (sat < .42) return 'MAUVE';
-    return 'PLUM';
+    if (br > 210) return pick(['LILAC','LAVENDER','VIOLET']);
+    if (br > 170) return pick(['LAVENDER','LILAC','MAUVE']);
+    if (sat < .42) return pick(['MAUVE','DUSTY','PLUM']);
+    return pick(['PLUM','VIOLET','GRAPE']);
   }
-
-  // magenta / pink purple
-  if (sat > .55 && br > 135) return 'BERRY';
-  if (br > 205) return 'BLUSH';
-  if (br > 150) return 'ROSE';
-  return 'MAUVE';
+  if (sat > .55 && br > 135) return pick(['BERRY','MAGENTA','ROSE']);
+  if (br > 205) return pick(['BLUSH','PETAL','LILAC']);
+  if (br > 150) return pick(['ROSE','MAUVE','BERRY']);
+  return pick(['MAUVE','PLUM','WINE']);
 }
 // ─────────────────────────────────────────────
 // CANVAS CARD RENDERERS
@@ -377,7 +392,7 @@ function drawMinimalChip(ctx, x, y, colors) {
     const cx=x+PD+i*(CS+GAP);
     ctx.fillStyle=hex;ctx.fillRect(cx,y+PD,CS,CS);
     ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(cx,y+PD,CS,CS);
-    ctx.fillStyle=INK;ctx.globalAlpha=.95;ctx.font=`900 6.5px 'Courier Prime','Courier New',monospace`;
+    ctx.fillStyle=INK;ctx.globalAlpha=.95;ctx.font=`900 6.2px 'Courier Prime','Courier New',monospace`;
     ctx.textAlign='center';ctx.textBaseline='alphabetic';
     ctx.fillText(hex.toUpperCase(),cx+CS/2,y+PD+CS+16);
     ctx.globalAlpha=1;
@@ -404,20 +419,22 @@ function drawPantoneCard(ctx, x, y, colors) {
     if(name==='CHARCOAL') return ['CHAR','COAL'];
     return [name.slice(0,8)];
   };
+  const usedNames=new Set();
+  const names=colors.map(hex=>colorName(hex,usedNames));
   colors.forEach((hex,i)=>{
-    const cx=x+i*(CW+GAP),cy=y;
+    const cx=Math.round(x+i*(CW+GAP)),cy=Math.round(y);
     ctx.save();ctx.shadowColor='rgba(75,55,92,.14)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
     ctx.fillStyle=CARD_BG;ctx.fillRect(cx,cy,CW,CH);ctx.restore();
     ctx.fillStyle=hex;ctx.fillRect(cx,cy,CW,colorH);
     ctx.fillStyle=CARD_BG;ctx.fillRect(cx,cy+colorH,CW,labelH);
     ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.6;ctx.strokeRect(cx,cy,CW,CH);
 
-    const lines=fitName(colorName(hex));
-    ctx.fillStyle=INK;ctx.font=`900 6.8px 'Plus Jakarta Sans',sans-serif`;
+    const lines=fitName(names[i]);
+    ctx.fillStyle=INK;ctx.font=`900 7.4px 'Plus Jakarta Sans',sans-serif`;
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
     lines.slice(0,2).forEach((line,li)=>ctx.fillText(line,cx+5,cy+colorH+9+li*7.5));
 
-    ctx.fillStyle=INK;ctx.globalAlpha=.98;ctx.font=`900 7.3px 'Courier Prime','Courier New',monospace`;
+    ctx.fillStyle=INK;ctx.globalAlpha=.98;ctx.font=`900 8px 'Courier Prime','Courier New',monospace`;
     ctx.fillText(hex.toUpperCase(),cx+5,cy+CH-5);
     ctx.globalAlpha=1;
   });
@@ -428,14 +445,16 @@ function drawSlimLabel(ctx, x, y, colors) {
   ctx.save();ctx.shadowColor='rgba(75,55,92,.14)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
   ctx.fillStyle=CARD_BG;ctx.fillRect(x,y,W,H);ctx.restore();
   ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.6;ctx.strokeRect(x,y,W,H);
+  const usedNames=new Set();
+  const names=colors.map(hex=>colorName(hex,usedNames));
   colors.forEach((hex,i)=>{
-    const ry=y+PD+i*rowH;
+    const ry=Math.round(y+PD+i*rowH);
     ctx.fillStyle=hex;ctx.fillRect(x+PD,ry+4,SW,SW);
     ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(x+PD,ry+4,SW,SW);
     ctx.fillStyle=INK;ctx.font=`900 6.4px 'Plus Jakarta Sans',sans-serif`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    const nm=colorName(hex);
-    ctx.fillText(nm.length>11?nm.slice(0,11):nm,x+PD+SW+7,ry+14);
-    ctx.globalAlpha=.98;ctx.font=`900 6.5px 'Courier Prime','Courier New',monospace`;ctx.textAlign='right';
+    const nm=names[i];
+    ctx.fillText(nm.length>11?nm.slice(0,11):nm,Math.round(x+PD+SW+7),ry+14);
+    ctx.globalAlpha=.98;ctx.font=`900 7.2px 'Courier Prime','Courier New',monospace`;ctx.textAlign='right';
     ctx.fillText(hex.toUpperCase(),x+W-PD,ry+14);ctx.globalAlpha=1;
   });
 }
@@ -462,6 +481,7 @@ function wrapText(ctx, text, maxW) {
 const OUT_W=1080, OUT_H=1920;
 const CW=405, CH=720;
 const SCALE=OUT_W/CW;
+const RENDER_SCALE=3;
 const PAD=Math.round(CW*0.1);
 const DPR = typeof window!=='undefined' ? (window.devicePixelRatio||2) : 2;
 
@@ -475,7 +495,7 @@ function SolidIcon({name,size=17,color='currentColor'}){
     home:(<svg {...common}><path d="M3 10.2 12 3l9 7.2v2.2h-2V21h-5v-6h-4v6H5v-8.6H3z"/></svg>),
     bulb:(<svg {...common}><path d="M5 4h14v11H9l-4 4V4Zm6 4h2v2h-2V8Zm0 4h2v2h-2v-2Z"/></svg>),
     reset:(<svg {...common}><path d="M5 5h8v4H9.7c1.1 1.1 2.2 2.2 3.3 3.3 1.2 1.2 3.1.3 3.1-1.4V8h4v2.9c0 5.3-6.4 7.9-10.1 4.1L8 13v3H4V5h1Z"/></svg>),
-    shuffle:(<svg {...common}><path d="M4 6h9v3h2V4h-2v2H4v3Zm16 3-5-5v10l5-5ZM20 18h-9v-3H9v5h2v-2h9v-3ZM4 15l5 5V10l-5 5Z"/></svg>),
+    shuffle:(<svg {...common}><path d="M4 6h9V3l7 5-7 5v-3H4V6Zm16 12h-9v3l-7-5 7-5v3h9v4Z"/></svg>),
     eye:(<svg {...common}><path d="M12 5C6.2 5 2.8 9.2 2 12c.8 2.8 4.2 7 10 7s9.2-4.2 10-7c-.8-2.8-4.2-7-10-7Zm0 10a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"/></svg>),
     save:(<svg {...common}><path d="M5 3h11l3 3v15H5V3Zm3 2v6h8V5H8Zm1 11v3h6v-3H9Z"/></svg>),
     photo:(<svg {...common}><path d="M3 5h18v14H3V5Zm3 10h12l-4-5-3 4-2-2-3 3Zm1-7.5A1.5 1.5 0 1 0 7 10a1.5 1.5 0 0 0 0-2.5Z"/></svg>),
@@ -507,6 +527,7 @@ function PaletteStory() {
   const [strategy, setStrategy] = useState(0);
   const [colorHistory, setColorHistory] = useState([]); // [{colors, bgColor}]
   const [photoSize,setPhotoSize]= useState('M');
+  const [photoFrame,setPhotoFrame]= useState('none');
   const [fitMode,  setFitMode]  = useState('contain'); // 'contain' | 'trim'
   const [crop,     setCrop]     = useState(null);      // image coords
   const [finalCrop,setFinalCrop]= useState(null);
@@ -645,8 +666,8 @@ function PaletteStory() {
     const cv=previewRef.current; if(!cv)return;
     const ctx=cv.getContext('2d');
     ctx.setTransform(1,0,0,1,0,0); // リセット
-    ctx.clearRect(0,0,CW*2,CH*2);
-    ctx.scale(2,2); // Retina対応
+    ctx.clearRect(0,0,CW*RENDER_SCALE,CH*RENDER_SCALE);
+    ctx.scale(RENDER_SCALE,RENDER_SCALE); // 高解像度対応
     ctx.fillStyle=bgColor; ctx.fillRect(0,0,CW,CH);
 
     // photoLayout インライン計算
@@ -662,7 +683,8 @@ function PaletteStory() {
       photoW=srcW*_sc; photoH=srcH*_sc;
       photoX=(CW-photoW)/2; photoY=PAD;
     }
-    const photoBtm=photoY+photoH;
+    const frameW=(img && photoFrame==='white')?9:0;
+    const photoBtm=photoY+photoH+frameW;
 
     // 写真描画
     if (!img) {
@@ -681,12 +703,21 @@ function PaletteStory() {
       ctx.fillStyle='rgba(0,0,0,.22)'; ctx.font=`500 15px 'Plus Jakarta Sans',sans-serif`;
       ctx.fillText('Add Photo', photoX+photoW/2, photoY+photoH/2+22);
     } else {
+      if(frameW>0){
+        const fx=Math.round(photoX-frameW), fy=Math.round(photoY-frameW);
+        const fw=Math.round(photoW+frameW*2), fh=Math.round(photoH+frameW*2);
+        ctx.save();
+        ctx.shadowColor='rgba(61,68,88,.10)';
+        ctx.shadowBlur=10;ctx.shadowOffsetY=3;
+        ctx.fillStyle='#FFFFFF';ctx.fillRect(fx,fy,fw,fh);
+        ctx.restore();
+      }
       if (finalCrop && finalCrop.w>10) {
         // トリミング: crop範囲をそのまま、さらに切らない
-        ctx.drawImage(img, finalCrop.x,finalCrop.y,finalCrop.w,finalCrop.h, photoX,photoY,photoW,photoH);
+        ctx.drawImage(img, finalCrop.x,finalCrop.y,finalCrop.w,finalCrop.h, Math.round(photoX),Math.round(photoY),Math.round(photoW),Math.round(photoH));
       } else {
         // そのまま: contain表示
-        ctx.drawImage(img, photoX,photoY,photoW,photoH);
+        ctx.drawImage(img, Math.round(photoX),Math.round(photoY),Math.round(photoW),Math.round(photoH));
       }
     }
 
@@ -749,7 +780,7 @@ function PaletteStory() {
     }
     // 両方空ならガイド
 
-  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,photoSize,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos]);
+  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,photoSize,photoFrame,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos]);
 
   useEffect(()=>{render();},[render]);
 
@@ -863,7 +894,7 @@ function PaletteStory() {
     const ctx=sv.getContext('2d');
     ctx.scale(SCALE,SCALE);
     // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
-    ctx.drawImage(previewRef.current,0,0,CW*2,CH*2,0,0,CW,CH);
+    ctx.drawImage(previewRef.current,0,0,CW*RENDER_SCALE,CH*RENDER_SCALE,0,0,CW,CH);
     const dataUrl = sv.toDataURL('image/png');
     shareImage(dataUrl);
     // ギャラリーに保存（サムネイル用に小さく）
@@ -914,7 +945,7 @@ function PaletteStory() {
         <button onClick={()=>{
             setShowGallery(false);
             setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');
-            setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);
+            setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');
             setTab('photo');
           }}
           style={{padding:'10px 20px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
@@ -982,7 +1013,7 @@ function PaletteStory() {
       <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)'}}
         onClick={()=>{}}>
 
-        <canvas ref={previewRef} width={CW*2} height={CH*2}
+        <canvas ref={previewRef} width={CW*RENDER_SCALE} height={CH*RENDER_SCALE}
           style={{height:'100%',width:'auto',aspectRatio:'9/16',display:'block',maxWidth:'100%',touchAction:'none',
             transform:`scale(${viewScale}) translate(${viewOffset.x/viewScale}px,${viewOffset.y/viewScale}px)`,
             transformOrigin:'center center'}}
@@ -1089,13 +1120,13 @@ function PaletteStory() {
               style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <SolidIcon name="home" size={16}/>
             </button>
-            <button aria-label="How to" onClick={(e)=>{e.stopPropagation();setShowHowTo(true);}}
-              style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
-              <SolidIcon name="bulb" size={16}/>
+            <button aria-label="Hint" onClick={(e)=>{e.stopPropagation();setShowHowTo(true);}}
+              style={{height:34,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              <span style={{fontSize:'.86rem',lineHeight:1}}>💡</span> Hint
             </button>
-            <button aria-label="Reset" onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});}}}
-              style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
-              <SolidIcon name="reset" size={16}/>
+            <button aria-label="Reset" onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});}}}
+              style={{height:34,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              <span style={{fontSize:'1rem',fontWeight:900,lineHeight:1}}>↺</span> Reset
             </button>
             {img&&(
               <button onClick={()=>setShowFullPreview(true)}
@@ -1147,6 +1178,11 @@ function PaletteStory() {
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
                       {[['S','Small'],['M','Medium'],['L','Large']].map(([k,l])=><SBtn key={k} active={photoSize===k} onClick={()=>setPhotoSize(k)}>{l}</SBtn>)}
                     </div>
+                    <Lbl t="Frame" sub="白ふち"/>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                      <SBtn active={photoFrame==='none'} onClick={()=>setPhotoFrame('none')}>None</SBtn>
+                      <SBtn active={photoFrame==='white'} onClick={()=>setPhotoFrame('white')}>White Frame</SBtn>
+                    </div>
                   </>
                 )}
               </div>
@@ -1159,7 +1195,7 @@ function PaletteStory() {
                   <>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
                       <PBtn onClick={doExtract} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.74rem'}}>色を抽出する</PBtn>
-                      <SBtn onClick={doRetry} full={false} style={{width:'100%',padding:'8px 8px',fontSize:'.72rem',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,textTransform:'lowercase'}}><SolidIcon name="shuffle" size={14}/> retry</SBtn>
+                      <SBtn onClick={doRetry} full={false} style={{width:'100%',padding:'8px 8px',fontSize:'.74rem',fontWeight:900,display:'inline-flex',alignItems:'center',justifyContent:'center',gap:7,textTransform:'lowercase'}}><SolidIcon name="shuffle" size={18}/> retry</SBtn>
                     </div>
                     {colors.length>0&&(
                       <>
@@ -1390,14 +1426,14 @@ function PaletteStory() {
         <div style={{position:'fixed',inset:0,background:'#000',display:'flex',flexDirection:'column',zIndex:400}}>
           <div style={{flex:1,display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',padding:'16px 12px 8px'}}>
             <canvas
-              width={CW*2} height={CH*2}
+              width={CW*RENDER_SCALE} height={CH*RENDER_SCALE}
               ref={el=>{
                 if(!el||!previewRef.current)return;
                 requestAnimationFrame(()=>{
                   if(!previewRef.current)return;
-                  el.width=CW*2;el.height=CH*2;
+                  el.width=CW*RENDER_SCALE;el.height=CH*RENDER_SCALE;
                   const ctx=el.getContext('2d');
-                  ctx.drawImage(previewRef.current,0,0,CW*2,CH*2);
+                  ctx.drawImage(previewRef.current,0,0,CW*RENDER_SCALE,CH*RENDER_SCALE);
                 });
               }}
               style={{maxWidth:'100%',maxHeight:'100%',aspectRatio:'9/16',display:'block',boxShadow:'0 0 30px rgba(0,0,0,.6)'}}
