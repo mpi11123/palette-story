@@ -315,67 +315,100 @@ function colorName(hex, usedNames=null) {
   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
   const br=getBr([r,g,b]), sat=getSat([r,g,b]);
   const h=Math.round(getHue([r,g,b])*360);
+
+  // palette story 専用ネーミング。
+  // 3色セットで同じ名前が続かないよう、usedNames がある時は候補を順番にずらす。
   const pick=(list)=>{
-    if(!usedNames) return list[0];
-    const found=list.find(n=>!usedNames.has(n));
-    const name=found||list[0];
+    const clean=list.map(n=>String(n).toUpperCase());
+    if(!usedNames) return clean[0];
+    const found=clean.find(n=>!usedNames.has(n));
+    if(found){ usedNames.add(found); return found; }
+
+    // 同系色が続いた時の保険。DARK CINNAMON のような長すぎる名前は避け、
+    // まず短い別名、それでも足りなければトーン付きにする。
+    const fallbackPool=['ESPRESSO','MOCHA','CACAO','WALNUT','COCOA','LATTE','CLAY','RUST','OAT','SAND','ASH','FOG','INK'];
+    const fallback=fallbackPool.find(n=>!usedNames.has(n));
+    if(fallback){ usedNames.add(fallback); return fallback; }
+
+    const tone = br < 75 ? 'DEEP' : br > 205 ? 'LIGHT' : sat < .25 ? 'SOFT' : 'RICH';
+    let name = `${tone} ${clean[0]}`;
+    let i=2;
+    while(usedNames.has(name)){ name = `${tone} ${clean[0]} ${i++}`; }
     usedNames.add(name);
     return name;
   };
 
   if (sat < .08) {
-    if (br > 232) return pick(['IVORY','MILK','CLOUD']);
-    if (br > 175) return pick(['MIST','FOG','ASH']);
-    if (br > 95) return pick(['STONE','SMOKE','TAUPE']);
-    return pick(['INK','CHARCOAL','NOIR']);
+    if (br > 232) return pick(['IVORY','MILK','CLOUD','PEARL']);
+    if (br > 175) return pick(['MIST','FOG','ASH','DOVE']);
+    if (br > 95) return pick(['STONE','SMOKE','TAUPE','GREIGE']);
+    return pick(['INK','CHARCOAL','NOIR','GRAPHITE']);
   }
 
+  // red / pink
   if (h >= 338 || h < 12) {
-    if (sat > .58 && br > 110) return pick(['BERRY','RASPBERRY','CHERRY']);
-    if (br > 205) return pick(['BLUSH','ROSE','PETAL']);
-    if (br > 140) return pick(['ROSE','BERRY','CORAL']);
-    return pick(['CRIMSON','WINE','CHERRY']);
+    if (sat > .58 && br > 130) return pick(['BERRY','RASPBERRY','CHERRY','POPPY']);
+    if (br > 205) return pick(['BLUSH','PETAL','ROSE','COTTON']);
+    if (br > 145) return pick(['ROSE','BERRY','CORAL','DUSTY ROSE']);
+    return pick(['CRIMSON','WINE','CHERRY','BURGUNDY']);
   }
+
+  // coral / terracotta / rust
   if (h < 28) {
-    if (sat > .62 && br > 140) return pick(['CORAL','FLAMINGO','APRICOT']);
-    if (br > 185) return pick(['PEACH','APRICOT','CORAL']);
-    return pick(['CINNAMON','RUST','CLAY']);
+    if (sat > .62 && br > 145) return pick(['CORAL','FLAMINGO','POPPY','APRICOT']);
+    if (br > 190) return pick(['PEACH','APRICOT','CORAL','MELON']);
+    if (br < 75) return pick(['ESPRESSO','COCOA','WALNUT','CACAO']);
+    if (br < 120) return pick(['RUST','CLAY','CINNAMON','BRICK']);
+    return pick(['TERRACOTTA','CINNAMON','CLAY','RUST']);
   }
+
+  // orange / brown / beige
   if (h < 52) {
-    if (br > 205) return pick(['BUTTER','CREAM','VANILLA']);
-    if (sat < .35 && br > 150) return pick(['LATTE','BISCUIT','OAT']);
-    if (br > 120) return pick(['CARAMEL','CINNAMON','HONEY']);
-    return pick(['COCOA','WALNUT','MOCHA']);
+    if (br > 210) return pick(['CREAM','BUTTER','VANILLA','OAT']);
+    if (sat < .30 && br > 165) return pick(['LATTE','BISCUIT','OAT','SAND']);
+    if (br > 145) return pick(['CARAMEL','HONEY','BISCUIT','CINNAMON']);
+    if (br > 95) return pick(['WALNUT','MOCHA','COCOA','CINNAMON']);
+    return pick(['ESPRESSO','CACAO','COFFEE','COCOA']);
   }
+
+  // yellow
   if (h < 76) {
-    if (br > 205) return pick(['LEMON','BUTTER','CREAM']);
-    if (sat > .45) return pick(['HONEY','MUSTARD','GOLD']);
-    return pick(['SAND','OAT','WHEAT']);
+    if (br > 210) return pick(['LEMON','BUTTER','CREAM','VANILLA']);
+    if (sat > .45) return pick(['HONEY','MUSTARD','GOLD','AMBER']);
+    return pick(['SAND','OAT','WHEAT','KHAKI']);
   }
+
+  // green
   if (h < 165) {
-    if (br > 205 && sat < .45) return pick(['MINT','SAGE','PISTACHIO']);
-    if (br > 185) return pick(['SAGE','MINT','FERN']);
-    if (sat > .45 && br > 120) return pick(['OLIVE','FERN','HERB']);
-    if (br > 95) return pick(['MOSS','OLIVE','FOREST']);
-    return pick(['FOREST','MOSS','PINE']);
+    if (br > 205 && sat < .45) return pick(['MINT','SAGE','PISTACHIO','CELERY']);
+    if (br > 180) return pick(['SAGE','MINT','FERN','PISTACHIO']);
+    if (sat > .45 && br > 120) return pick(['OLIVE','FERN','HERB','LEAF']);
+    if (br > 95) return pick(['MOSS','OLIVE','FOREST','SAGE']);
+    return pick(['FOREST','PINE','MOSS','EVERGREEN']);
   }
+
+  // blue / cyan
   if (h < 255) {
-    if (br > 215) return pick(['ICE','POWDER','CLOUD']);
-    if (br > 185) return pick(['SKY','ICE','MIST']);
-    if (sat < .35 && br > 125) return pick(['DENIM','SLATE','DUSK']);
-    if (br > 95) return pick(['BLUE','DENIM','OCEAN']);
-    return pick(['NAVY','INDIGO','MIDNIGHT']);
+    if (br > 218) return pick(['ICE','POWDER','CLOUD','MIST']);
+    if (br > 185) return pick(['SKY','ICE','MIST','POWDER']);
+    if (sat < .35 && br > 125) return pick(['DENIM','SLATE','DUSK','STEEL']);
+    if (br > 95) return pick(['BLUE','OCEAN','DENIM','COBALT']);
+    return pick(['NAVY','INDIGO','MIDNIGHT','INK']);
   }
+
+  // purple
   if (h < 305) {
-    if (br > 210) return pick(['LILAC','LAVENDER','VIOLET']);
-    if (br > 170) return pick(['LAVENDER','LILAC','MAUVE']);
-    if (sat < .42) return pick(['MAUVE','DUSTY','PLUM']);
-    return pick(['PLUM','VIOLET','GRAPE']);
+    if (br > 210) return pick(['LILAC','LAVENDER','VIOLET','WISTERIA']);
+    if (br > 170) return pick(['LAVENDER','LILAC','MAUVE','VIOLET']);
+    if (sat < .42) return pick(['MAUVE','DUSTY','PLUM','TAUPE']);
+    return pick(['PLUM','VIOLET','GRAPE','ORCHID']);
   }
-  if (sat > .55 && br > 135) return pick(['BERRY','MAGENTA','ROSE']);
-  if (br > 205) return pick(['BLUSH','PETAL','LILAC']);
-  if (br > 150) return pick(['ROSE','MAUVE','BERRY']);
-  return pick(['MAUVE','PLUM','WINE']);
+
+  // magenta / pink-purple
+  if (sat > .55 && br > 135) return pick(['BERRY','MAGENTA','ROSE','FUCHSIA']);
+  if (br > 205) return pick(['BLUSH','PETAL','LILAC','ROSE']);
+  if (br > 150) return pick(['ROSE','MAUVE','BERRY','DUSTY ROSE']);
+  return pick(['MAUVE','PLUM','WINE','BERRY']);
 }
 // ─────────────────────────────────────────────
 // CANVAS CARD RENDERERS
@@ -392,7 +425,7 @@ function drawMinimalChip(ctx, x, y, colors) {
     const cx=x+PD+i*(CS+GAP);
     ctx.fillStyle=hex;ctx.fillRect(cx,y+PD,CS,CS);
     ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(cx,y+PD,CS,CS);
-    ctx.fillStyle=INK;ctx.globalAlpha=.95;ctx.font=`900 6.2px 'Courier Prime','Courier New',monospace`;
+    ctx.fillStyle=INK;ctx.globalAlpha=.95;ctx.font=`900 7.2px 'Courier Prime','Courier New',monospace`;
     ctx.textAlign='center';ctx.textBaseline='alphabetic';
     ctx.fillText(hex.toUpperCase(),cx+CS/2,y+PD+CS+16);
     ctx.globalAlpha=1;
@@ -571,6 +604,93 @@ function PaletteStory() {
   const [bodyColor, setBodyColor] =useState('rgba(61,68,88,0.72)');
   const [bodyBold,  setBodyBold]  =useState(false);
   const [titleBold, setTitleBold] =useState(false);
+
+  const getPixelsFromImage = (image) => {
+    try {
+      const c=document.createElement('canvas');
+      const cx=c.getContext('2d');
+      c.width=200; c.height=200;
+      cx.drawImage(image,0,0,200,200);
+      const d=cx.getImageData(0,0,200,200).data;
+      const px=[];
+      for(let j=0;j<d.length;j+=4){
+        if(d[j+3]<128)continue;
+        px.push([d[j],d[j+1],d[j+2]]);
+      }
+      return px;
+    } catch {
+      return [];
+    }
+  };
+
+  const createEditState = () => ({
+    version: 2,
+    imageSrc: img ? img.src : null,
+    colors, bgColor, bgSugs, selBg, strategy, colorHistory,
+    photoSize, fitMode, crop, finalCrop, photoFrame,
+    cardStyle, cardAlign, cardScale,
+    titleTxt, bodyTxt, titleAlign, bodyAlign, titleLang, titleSeed,
+    titlePos, bodyPos, textOffset,
+    titleFont, bodyFont, titleSize, bodySize, titleColor, bodyColor, titleBold, bodyBold,
+    viewScale, viewOffset,
+  });
+
+  const restoreEditState = (st) => {
+    if(!st) return;
+    setGalleryPreview(null);
+    setShowGallery(false);
+    setShowSave(null);
+    setShowCrop(false);
+    setColors(st.colors||[]);
+    setBgColor(st.bgColor||'#F5F2EE');
+    setBgSugs(st.bgSugs||[]);
+    setSelBg(st.selBg||null);
+    setStrategy(st.strategy||0);
+    setColorHistory(st.colorHistory||[]);
+    setPhotoSize(st.photoSize||'M');
+    setFitMode(st.fitMode||'contain');
+    setCrop(st.crop||null);
+    setFinalCrop(st.finalCrop||null);
+    setPhotoFrame(st.photoFrame||'none');
+    setCardStyle(st.cardStyle||'pantone');
+    setCardAlign(st.cardAlign||'right');
+    setCardScale(st.cardScale||90);
+    setTitleTxt(st.titleTxt||'');
+    setBodyTxt(st.bodyTxt||'');
+    setTitleAlign(st.titleAlign||'left');
+    setBodyAlign(st.bodyAlign||'left');
+    setTitleLang(st.titleLang||'ja');
+    setTitleSeed(st.titleSeed||0);
+    setSuggestions([]);
+    setShowSugg(false);
+    setTitlePos(st.titlePos||{snap:'left',offsetY:0});
+    setBodyPos(st.bodyPos||{snap:'left',offsetY:20});
+    setTextOffset(st.textOffset ?? 20);
+    setTitleFont(st.titleFont||"'Playfair Display', serif");
+    setBodyFont(st.bodyFont||"'DM Sans', sans-serif");
+    setTitleSize(st.titleSize||24);
+    setBodySize(st.bodySize||15);
+    setTitleColor(st.titleColor||'#3D4458');
+    setBodyColor(st.bodyColor||'rgba(61,68,88,0.72)');
+    setTitleBold(!!st.titleBold);
+    setBodyBold(!!st.bodyBold);
+    const vs=st.viewScale||1, vo=st.viewOffset||{x:0,y:0};
+    viewTransform.current={scale:vs,x:vo.x||0,y:vo.y||0,lastDist:0,lastX:0,lastY:0,pinching:false,dragging:false};
+    setViewScale(vs);
+    setViewOffset({x:vo.x||0,y:vo.y||0});
+    setTab('photo');
+    if(st.imageSrc){
+      const i=new Image();
+      i.onload=()=>{
+        setImg(i);
+        setPixels(getPixelsFromImage(i));
+      };
+      i.src=st.imageSrc;
+    }else{
+      setImg(null);
+      setPixels([]);
+    }
+  };
 
   // ── file upload ──
   const handleFile = (e) => {
@@ -902,7 +1022,7 @@ function PaletteStory() {
     thumb.width=108;thumb.height=192;
     thumb.getContext('2d').drawImage(sv,0,0,OUT_W,OUT_H,0,0,108,192);
     const thumbUrl = thumb.toDataURL('image/jpeg',0.7);
-    const entry = {id:Date.now(),date:new Date().toLocaleDateString('ja-JP'),dataUrl,thumbUrl};
+    const entry = {id:Date.now(),date:new Date().toLocaleDateString('ja-JP'),dataUrl,thumbUrl,editState:createEditState()};
     setGallery(prev=>{
       const next=[entry,...prev].slice(0,24); // 最大24件
       try{localStorage.setItem('ps_gallery',JSON.stringify(next));}catch{}
@@ -946,6 +1066,9 @@ function PaletteStory() {
             setShowGallery(false);
             setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');
             setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');
+            setCrop(null);setFinalCrop(null);setBgSugs([]);setSelBg(null);setSuggestions([]);setShowSugg(false);
+            viewTransform.current={scale:1,x:0,y:0,lastDist:0,lastX:0,lastY:0,pinching:false,dragging:false};
+            setViewScale(1);setViewOffset({x:0,y:0});
             setTab('photo');
           }}
           style={{padding:'10px 20px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
@@ -973,8 +1096,11 @@ function PaletteStory() {
       {galleryPreview&&(
         <div style={{position:'fixed',inset:0,background:'rgba(17,17,17,.92)',zIndex:900,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'18px'}}>
           <img src={galleryPreview.dataUrl} style={{maxWidth:'92%',maxHeight:'76vh',objectFit:'contain',borderRadius:4,boxShadow:'0 12px 40px rgba(0,0,0,.35)'}}/>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,width:'100%',maxWidth:360,marginTop:14}}>
+          <div style={{display:'grid',gridTemplateColumns:galleryPreview.editState?'1fr 1fr 1fr 1fr':'1fr 1fr 1fr',gap:8,width:'100%',maxWidth:galleryPreview.editState?420:360,marginTop:14}}>
             <button onClick={()=>setGalleryPreview(null)} style={{padding:'11px',border:'none',borderRadius:4,background:'#fff',color:'#3D4458',fontFamily:'inherit',fontWeight:700}}>戻る</button>
+            {galleryPreview.editState&&(
+              <button onClick={()=>restoreEditState(galleryPreview.editState)} style={{padding:'11px',border:'none',borderRadius:4,background:'#fff',color:'#3D4458',fontFamily:'inherit',fontWeight:700}}>編集</button>
+            )}
             <button onClick={()=>shareImage(galleryPreview.dataUrl)} style={{padding:'11px',border:'none',borderRadius:4,background:'#C8A8C8',color:'#fff',fontFamily:'inherit',fontWeight:700}}>保存</button>
             <button onClick={()=>{
               if(!window.confirm('この作品をギャラリーから削除しますか？')) return;
@@ -1390,13 +1516,20 @@ function PaletteStory() {
           <div style={{width:'100%',maxWidth:360,background:'#fff',borderRadius:4,padding:'24px',maxHeight:'80vh',overflowY:'auto'}}
             onClick={e=>e.stopPropagation()}>
             <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:700,fontSize:'1.05rem',color:'#3D4458',marginBottom:14}}>How to use</div>
-            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
-              <b style={{color:'#3D4458'}}> Photo</b> — 写真を選択<br/>
-              <b style={{color:'#3D4458'}}> Color</b> — 色を抽出・背景色を選ぶ<br/>
-              <b style={{color:'#3D4458'}}> Card</b> — カラーカードのスタイルを選ぶ<br/>
-              <b style={{color:'#3D4458'}}> Title</b> — タイトルを入力または提案から選ぶ<br/>
-              <b style={{color:'#3D4458'}}> Body</b> — 本文・日付などを入力<br/>
-              <b style={{color:'#3D4458'}}> Save</b> — 画像を保存
+            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.85,color:'#667A8C',marginBottom:10}}>
+              {[
+                ['Photo','写真を選択'],
+                ['Color','色を抽出・背景色を選ぶ'],
+                ['Card','カラーカードのスタイルを選ぶ'],
+                ['Title','タイトルを入力または提案から選ぶ'],
+                ['Body','本文・日付などを入力'],
+                ['Save','画像を保存'],
+              ].map(([label,desc])=>(
+                <div key={label} style={{display:'grid',gridTemplateColumns:'58px 1fr',columnGap:8,alignItems:'baseline',marginBottom:2}}>
+                  <b style={{color:'#3D4458',fontWeight:800}}>{label}</b>
+                  <span>— {desc}</span>
+                </div>
+              ))}
             </div>
             <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>プレビューの操作</div>
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
