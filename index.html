@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>palette story.</title>
+<title>palette story. v5</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html,body{height:100dvh;overflow:hidden;background:#F7F3FA;}
@@ -414,41 +414,67 @@ function colorName(hex, usedNames=null) {
 // CANVAS CARD RENDERERS
 // ─────────────────────────────────────────────
 const INK='#667A8C', CARD_BG='#FAFAF8';
+const CARD_FONT = "'Helvetica Neue', Arial, 'Noto Sans JP', sans-serif";
 
 function drawMinimalChip(ctx, x, y, colors) {
-  // Minimal Chip: 文字が重ならないように、色チップ同士の間隔を広めに取る。
-  // 角丸なし・サンセリフ・HEX中央配置。
-  const CS=54, GAP=24, PD_X=20, PD_Y=18, LABEL_GAP=18, BOTTOM=18;
-  const W=CS*3+GAP*2+PD_X*2, H=PD_Y+CS+LABEL_GAP+15+BOTTOM;
-  const rx=Math.round(x), ry=Math.round(y);
+  // Minimal Chip v5:
+  // ・HEXが絶対に重ならないよう、1色ごとのカラム幅を固定
+  // ・フォントは全カード共通のサンセリフ（Helvetica Neue / Arial / Noto Sans JP）
+  // ・角丸なし
+  // ・文字が長い場合は自動で少しだけ縮小
+  const CS = 38;
+  const COL_W = 86;
+  const PD_X = 18;
+  const PD_Y = 16;
+  const LABEL_GAP = 14;
+  const LABEL_H = 18;
+  const BOTTOM = 16;
+  const W = COL_W * 3 + PD_X * 2;
+  const H = PD_Y + CS + LABEL_GAP + LABEL_H + BOTTOM;
+  const rx = Math.round(x), ry = Math.round(y);
+
   ctx.save();
-  ctx.shadowColor='rgba(75,55,92,.12)';
-  ctx.shadowBlur=8;
-  ctx.shadowOffsetY=2;
-  ctx.fillStyle=CARD_BG;
-  ctx.fillRect(rx,ry,W,H);
+  ctx.shadowColor = 'rgba(75,55,92,.12)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = CARD_BG;
+  ctx.fillRect(rx, ry, W, H);
   ctx.restore();
-  ctx.strokeStyle='rgba(61,68,88,.10)';
-  ctx.lineWidth=.7;
-  ctx.strokeRect(rx+.5,ry+.5,W-1,H-1);
-  colors.forEach((hex,i)=>{
-    const cx=Math.round(rx+PD_X+i*(CS+GAP));
-    const cy=Math.round(ry+PD_Y);
-    ctx.fillStyle=hex;
-    ctx.fillRect(cx,cy,CS,CS);
-    ctx.strokeStyle='rgba(0,0,0,.08)';
-    ctx.lineWidth=.7;
-    ctx.strokeRect(cx+.5,cy+.5,CS-1,CS-1);
-    ctx.fillStyle='#3D4458';
-    ctx.globalAlpha=.98;
-    ctx.font=`800 12px 'Plus Jakarta Sans','DM Sans',sans-serif`;
-    ctx.textAlign='center';
-    ctx.textBaseline='alphabetic';
-    ctx.fillText(hex.toUpperCase(),cx+CS/2,cy+CS+LABEL_GAP+10);
-    ctx.globalAlpha=1;
+
+  ctx.strokeStyle = 'rgba(61,68,88,.10)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(rx + .5, ry + .5, W - 1, H - 1);
+
+  const drawFitText = (text, cx, y, maxW) => {
+    let fs = 11.5;
+    ctx.font = `800 ${fs}px ${CARD_FONT}`;
+    while (ctx.measureText(text).width > maxW && fs > 9) {
+      fs -= .5;
+      ctx.font = `800 ${fs}px ${CARD_FONT}`;
+    }
+    ctx.fillText(text, cx, y);
+  };
+
+  colors.forEach((hex, i) => {
+    const colX = rx + PD_X + i * COL_W;
+    const cx = Math.round(colX + COL_W / 2);
+    const chipX = Math.round(cx - CS / 2);
+    const chipY = Math.round(ry + PD_Y);
+
+    ctx.fillStyle = hex;
+    ctx.fillRect(chipX, chipY, CS, CS);
+    ctx.strokeStyle = 'rgba(0,0,0,.08)';
+    ctx.lineWidth = .8;
+    ctx.strokeRect(chipX + .5, chipY + .5, CS - 1, CS - 1);
+
+    ctx.fillStyle = '#3D4458';
+    ctx.globalAlpha = .98;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    drawFitText(hex.toUpperCase(), cx, chipY + CS + LABEL_GAP + 10, COL_W - 8);
+    ctx.globalAlpha = 1;
   });
 }
-
 function fitLabelText(text, maxChars=9) {
   if (!text) return [''];
   if (text.length <= maxChars) return [text];
@@ -480,11 +506,11 @@ function drawPantoneCard(ctx, x, y, colors) {
     ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.6;ctx.strokeRect(cx,cy,CW,CH);
 
     const lines=fitName(names[i]);
-    ctx.fillStyle=INK;ctx.font=`900 7.4px 'Plus Jakarta Sans',sans-serif`;
+    ctx.fillStyle=INK;ctx.font=`800 7.4px ${CARD_FONT}`;
     ctx.textAlign='left';ctx.textBaseline='alphabetic';
     lines.slice(0,2).forEach((line,li)=>ctx.fillText(line,cx+5,cy+colorH+9+li*7.5));
 
-    ctx.fillStyle=INK;ctx.globalAlpha=.98;ctx.font=`900 8px 'Courier Prime','Courier New',monospace`;
+    ctx.fillStyle=INK;ctx.globalAlpha=.98;ctx.font=`800 8px ${CARD_FONT}`;
     ctx.fillText(hex.toUpperCase(),cx+5,cy+CH-5);
     ctx.globalAlpha=1;
   });
@@ -501,16 +527,16 @@ function drawSlimLabel(ctx, x, y, colors) {
     const ry=Math.round(y+PD+i*rowH);
     ctx.fillStyle=hex;ctx.fillRect(x+PD,ry+4,SW,SW);
     ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(x+PD,ry+4,SW,SW);
-    ctx.fillStyle=INK;ctx.font=`900 6.4px 'Plus Jakarta Sans',sans-serif`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    ctx.fillStyle=INK;ctx.font=`800 6.7px ${CARD_FONT}`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
     const nm=names[i];
     ctx.fillText(nm.length>11?nm.slice(0,11):nm,Math.round(x+PD+SW+7),ry+14);
-    ctx.globalAlpha=.98;ctx.font=`900 7.2px 'Courier Prime','Courier New',monospace`;ctx.textAlign='right';
+    ctx.globalAlpha=.98;ctx.font=`800 7.2px ${CARD_FONT}`;ctx.textAlign='right';
     ctx.fillText(hex.toUpperCase(),x+W-PD,ry+14);ctx.globalAlpha=1;
   });
 }
 
 function getCardDims(style) {
-  if(style==='minimal') return{w:54*3+24*2+20*2,h:18+54+18+15+18};
+  if(style==='minimal') return{w:86*3+18*2,h:16+38+14+18+16};
   if(style==='pantone') return{w:62*3+6*2,h:84};
   return{w:178,h:24*3+9*2};
 }
