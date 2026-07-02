@@ -144,8 +144,10 @@ function generateTitles(cat, lang, seed, count=4, extractedColors=[]) {
       const moods = ['のきおく','のじかん','のいろ','のひとひら','のひとこと','がすき','がかわいい','の午後','の空気','のかけら'];
       const adjs2 = ['やさしい','ふわりとした','淡い','すきな','小さな'];
       for (const l of labels) {
-        for (const m of moods.slice(0,3)) colorTitles.push(l+m);
-        for (const a of adjs2.slice(0,2)) colorTitles.push(a+l);
+        // ラベル末尾の「の」を除去して助詞重複を防ぐ（例：キャラメルの+のじかん→キャラメルのじかん）
+        const base = l.endsWith('の') ? l.slice(0,-1) : l;
+        for (const m of moods.slice(0,3)) colorTitles.push(base+m);
+        for (const a of adjs2.slice(0,2)) colorTitles.push(a+base);
       }
     } else {
       const moods = ['Memory','Moment','Story','Mood','Note','Color','Day','Feeling'];
@@ -277,12 +279,21 @@ function pick3(px, strategy=0) {
   const selected=[];
   const isTooSimilar=(c)=>selected.some(s=>{
     const a=rgbInfo(c), b=rgbInfo(s);
-    return hueDiff(a.h,b.h)<18 && Math.abs(a.light-b.light)<34 && Math.abs(a.s-b.s)<.22;
+    return hueDiff(a.h,b.h)<30 && Math.abs(a.light-b.light)<40;
   });
 
   // まず高彩度アクセントを1色優先
   const accent=scored.find(o=>o.info.s>.35 && o.info.br>45 && o.info.br<240);
   if(accent) selected.push(accent.c);
+  // 2色目：1色目と色相が大きく異なる高彩度色を探す（ピンク・ブルーなど多様な色を拾う）
+  if(selected.length===1){
+    const first=rgbInfo(selected[0]);
+    const second=scored.find(o=>{
+      if(selected.includes(o.c))return false;
+      return o.info.s>.3 && hueDiff(o.info.h,first.h)>60 && o.info.br>45 && o.info.br<240;
+    });
+    if(second) selected.push(second.c);
+  }
 
   // 次に、色相・明度が被りにくいものを追加
   for (const o of scored) {
@@ -317,99 +328,100 @@ function colorName(hex, usedNames=null) {
   const br=getBr([r,g,b]), sat=getSat([r,g,b]);
   const h=Math.round(getHue([r,g,b])*360);
 
-  // palette story 専用ネーミング。
-  // 3色セットで同じ名前が続かないよう、usedNames がある時は候補を順番にずらす。
+  // ハイブリッド・ネーミング：
+  // 1. 各色域に豊富な候補リスト
+  // 2. hex値から決定的にインデックスを選ぶ（同じ色→同じ名前、微妙に違う色→違う名前）
+  // 3. 被ったら次候補→それでも被れば形容詞を自動付与
+  const seed=(r*7+g*13+b*17)%97; // hexから決定的な数値
   const pick=(list)=>{
     const clean=list.map(n=>String(n).toUpperCase());
-    if(!usedNames) return clean[0];
-    const found=clean.find(n=>!usedNames.has(n));
-    if(found){ usedNames.add(found); return found; }
-
-    // 同系色が続いた時の保険。DARK CINNAMON のような長すぎる名前は避け、
-    // まず短い別名、それでも足りなければトーン付きにする。
-    const fallbackPool=['ESPRESSO','MOCHA','CACAO','WALNUT','COCOA','LATTE','CLAY','RUST','OAT','SAND','ASH','FOG','INK'];
-    const fallback=fallbackPool.find(n=>!usedNames.has(n));
-    if(fallback){ usedNames.add(fallback); return fallback; }
-
-    const tone = br < 75 ? 'DEEP' : br > 205 ? 'LIGHT' : sat < .25 ? 'SOFT' : 'RICH';
-    let name = `${tone} ${clean[0]}`;
+    const start=seed%clean.length;
+    if(!usedNames) return clean[start];
+    // startから順に空いてる名前を探す
+    for(let i=0;i<clean.length;i++){
+      const n=clean[(start+i)%clean.length];
+      if(!usedNames.has(n)){ usedNames.add(n); return n; }
+    }
+    // 全部使われてたら形容詞を付けて自動生成
+    const tone = br<75?'DEEP' : br>205?'PALE' : sat<.25?'DUSTY' : 'SOFT';
+    let name=`${tone} ${clean[start]}`;
     let i=2;
-    while(usedNames.has(name)){ name = `${tone} ${clean[0]} ${i++}`; }
+    while(usedNames.has(name)){ name=`${tone} ${clean[start]} ${i++}`; }
     usedNames.add(name);
     return name;
   };
 
   if (sat < .08) {
-    if (br > 232) return pick(['IVORY','MILK','CLOUD','PEARL']);
-    if (br > 175) return pick(['MIST','FOG','ASH','DOVE']);
-    if (br > 95) return pick(['STONE','SMOKE','TAUPE','GREIGE']);
-    return pick(['INK','CHARCOAL','NOIR','GRAPHITE']);
+    if (br > 232) return pick(['IVORY','MILK','CLOUD','PEARL','SNOW','CHALK','COTTON','PAPER']);
+    if (br > 175) return pick(['MIST','FOG','ASH','DOVE','SILVER','PEBBLE','MOON','FEATHER']);
+    if (br > 95) return pick(['STONE','SMOKE','TAUPE','GREIGE','CEMENT','FLINT','SHADOW','PUTTY']);
+    return pick(['INK','CHARCOAL','NOIR','GRAPHITE','ONYX','SOOT','RAVEN','COAL']);
   }
 
   // red / pink
   if (h >= 338 || h < 12) {
-    if (sat > .58 && br > 130) return pick(['BERRY','RASPBERRY','CHERRY','POPPY']);
-    if (br > 205) return pick(['BLUSH','PETAL','ROSE','COTTON']);
-    if (br > 145) return pick(['ROSE','BERRY','CORAL','DUSTY ROSE']);
-    return pick(['CRIMSON','WINE','CHERRY','BURGUNDY']);
+    if (sat > .58 && br > 130) return pick(['BERRY','RASPBERRY','CHERRY','POPPY','STRAWBERRY','RUBY','PUNCH','CRANBERRY']);
+    if (br > 205) return pick(['BLUSH','PETAL','SAKURA','COTTON CANDY','BABY PINK','SHELL','ROSEWATER','PEONY']);
+    if (br > 145) return pick(['ROSE','CORAL','DUSTY ROSE','FLAMINGO','SALMON','TEA ROSE','CAMELLIA','ROUGE']);
+    return pick(['CRIMSON','WINE','CHERRY','BURGUNDY','GARNET','MERLOT','BRICK RED','SANGRIA']);
   }
 
   // coral / terracotta / rust
   if (h < 28) {
-    if (sat > .62 && br > 145) return pick(['CORAL','FLAMINGO','POPPY','APRICOT']);
-    if (br > 190) return pick(['PEACH','APRICOT','CORAL','MELON']);
-    if (br < 75) return pick(['ESPRESSO','COCOA','WALNUT','CACAO']);
-    if (br < 120) return pick(['RUST','CLAY','CINNAMON','BRICK']);
-    return pick(['TERRACOTTA','CINNAMON','CLAY','RUST']);
+    if (sat > .62 && br > 145) return pick(['CORAL','FLAMINGO','POPPY','APRICOT','TANGERINE','PERSIMMON','PAPAYA','SUNSET']);
+    if (br > 190) return pick(['PEACH','APRICOT','MELON','CANTALOUPE','NECTAR','SHERBET','CREAMSICLE','BISQUE']);
+    if (br < 75) return pick(['ESPRESSO','COCOA','WALNUT','CACAO','MAHOGANY','CHESTNUT','UMBER','TRUFFLE']);
+    if (br < 120) return pick(['RUST','CLAY','CINNAMON','BRICK','AUBURN','SIENNA','PAPRIKA','GINGER']);
+    return pick(['TERRACOTTA','CINNAMON','CLAY','RUST','ADOBE','CANYON','SPICE','AMBER CLAY']);
   }
 
   // orange / brown / beige
   if (h < 52) {
-    if (br > 210) return pick(['CREAM','BUTTER','VANILLA','OAT']);
-    if (sat < .30 && br > 165) return pick(['LATTE','BISCUIT','OAT','SAND']);
-    if (br > 145) return pick(['CARAMEL','HONEY','BISCUIT','CINNAMON']);
-    if (br > 95) return pick(['WALNUT','MOCHA','COCOA','CINNAMON']);
-    return pick(['ESPRESSO','CACAO','COFFEE','COCOA']);
+    if (br > 210) return pick(['CREAM','BUTTER','VANILLA','OAT','CUSTARD','ALMOND MILK','ECRU','LINEN']);
+    if (sat < .30 && br > 165) return pick(['LATTE','BISCUIT','OAT','SAND','ALMOND','BEIGE','TOAST','MUSHROOM']);
+    if (br > 145) return pick(['CARAMEL','HONEY','BISCUIT','BUTTERSCOTCH','MAPLE','TOFFEE','GOLDEN','APRICOT JAM']);
+    if (br > 95) return pick(['WALNUT','MOCHA','COCOA','CINNAMON','PECAN','HAZELNUT','BRONZE','TAWNY']);
+    return pick(['ESPRESSO','CACAO','COFFEE','DARK CHOCOLATE','MAHOGANY','TRUFFLE','UMBER','MOLE']);
   }
 
   // yellow
   if (h < 76) {
-    if (br > 210) return pick(['LEMON','BUTTER','CREAM','VANILLA']);
-    if (sat > .45) return pick(['HONEY','MUSTARD','GOLD','AMBER']);
-    return pick(['SAND','OAT','WHEAT','KHAKI']);
+    if (br > 210) return pick(['LEMON','BUTTER','CREAM','VANILLA','CHIFFON','DAFFODIL','BANANA','CUSTARD']);
+    if (sat > .45) return pick(['HONEY','MUSTARD','GOLD','AMBER','SAFFRON','MARIGOLD','OCHRE','DIJON']);
+    return pick(['SAND','OAT','WHEAT','KHAKI','STRAW','FLAX','DUNE','RATTAN']);
   }
 
   // green
   if (h < 165) {
-    if (br > 205 && sat < .45) return pick(['MINT','SAGE','PISTACHIO','CELERY']);
-    if (br > 180) return pick(['SAGE','MINT','FERN','PISTACHIO']);
-    if (sat > .45 && br > 120) return pick(['OLIVE','FERN','HERB','LEAF']);
-    if (br > 95) return pick(['MOSS','OLIVE','FOREST','SAGE']);
-    return pick(['FOREST','PINE','MOSS','EVERGREEN']);
+    if (br > 205 && sat < .45) return pick(['MINT','SAGE','PISTACHIO','CELERY','HONEYDEW','SEAFOAM','CUCUMBER','MATCHA LATTE']);
+    if (br > 180) return pick(['SAGE','MINT','FERN','PISTACHIO','MATCHA','JADE','WILLOW','APPLE']);
+    if (sat > .45 && br > 120) return pick(['OLIVE','FERN','HERB','LEAF','BASIL','CLOVER','MEADOW','KALE']);
+    if (br > 95) return pick(['MOSS','OLIVE','FOREST','SAGE','JUNIPER','THYME','ARTICHOKE','LICHEN']);
+    return pick(['FOREST','PINE','MOSS','EVERGREEN','HUNTER','SPRUCE','SEAWEED','BOTTLE GREEN']);
   }
 
   // blue / cyan
   if (h < 255) {
-    if (br > 218) return pick(['ICE','POWDER','CLOUD','MIST']);
-    if (br > 185) return pick(['SKY','ICE','MIST','POWDER']);
-    if (sat < .35 && br > 125) return pick(['DENIM','SLATE','DUSK','STEEL']);
-    if (br > 95) return pick(['BLUE','OCEAN','DENIM','COBALT']);
-    return pick(['NAVY','INDIGO','MIDNIGHT','INK']);
+    if (br > 218) return pick(['ICE','POWDER','CLOUD','MIST','ARCTIC','FROST','GLACIER','BABY BLUE']);
+    if (br > 185) return pick(['SKY','ICE','MIST','POWDER','CORNFLOWER','PERIWINKLE','AQUA','ROBIN EGG']);
+    if (sat < .35 && br > 125) return pick(['DENIM','SLATE','DUSK','STEEL','STORM','HARBOR','PEWTER','RAIN']);
+    if (br > 95) return pick(['BLUE','OCEAN','DENIM','COBALT','LAGOON','MARINE','CERULEAN','TEAL BLUE']);
+    return pick(['NAVY','INDIGO','MIDNIGHT','INK','SAPPHIRE','DEEP SEA','TWILIGHT','ABYSS']);
   }
 
   // purple
   if (h < 305) {
-    if (br > 210) return pick(['LILAC','LAVENDER','VIOLET','WISTERIA']);
-    if (br > 170) return pick(['LAVENDER','LILAC','MAUVE','VIOLET']);
-    if (sat < .42) return pick(['MAUVE','DUSTY','PLUM','TAUPE']);
-    return pick(['PLUM','VIOLET','GRAPE','ORCHID']);
+    if (br > 210) return pick(['LILAC','LAVENDER','VIOLET','WISTERIA','THISTLE','PERIWINKLE','HEATHER','SWEET PEA']);
+    if (br > 170) return pick(['LAVENDER','LILAC','MAUVE','VIOLET','AMETHYST','IRIS','CROCUS','HYACINTH']);
+    if (sat < .42) return pick(['MAUVE','PLUM','TAUPE','ORCHID GRAY','SMOKY PLUM','FIG','ELDERBERRY','DUSK PURPLE']);
+    return pick(['PLUM','VIOLET','GRAPE','ORCHID','AMETHYST','EGGPLANT','MULBERRY','ROYAL PURPLE']);
   }
 
   // magenta / pink-purple
-  if (sat > .55 && br > 135) return pick(['BERRY','MAGENTA','ROSE','FUCHSIA']);
-  if (br > 205) return pick(['BLUSH','PETAL','LILAC','ROSE']);
-  if (br > 150) return pick(['ROSE','MAUVE','BERRY','DUSTY ROSE']);
-  return pick(['MAUVE','PLUM','WINE','BERRY']);
+  if (sat > .55 && br > 135) return pick(['BERRY','MAGENTA','FUCHSIA','ORCHID PINK','AZALEA','BOUGAINVILLEA','PITAYA','HOT PINK']);
+  if (br > 205) return pick(['BLUSH','PETAL','LILAC PINK','SAKURA','SWEET LILAC','FAIRY','CANDY','BALLET']);
+  if (br > 150) return pick(['ROSE','MAUVE','BERRY','DUSTY ROSE','ORCHID','RASPBERRY MILK','TEA ROSE','MALLOW']);
+  return pick(['MAUVE','PLUM','WINE','BERRY','MULBERRY','FIG','BORDEAUX','RAISIN']);
 }
 // ─────────────────────────────────────────────
 // CANVAS CARD RENDERERS
@@ -423,13 +435,13 @@ function drawMinimalChip(ctx, x, y, colors) {
   // ・フォントは全カード共通のサンセリフ（Helvetica Neue / Arial / Noto Sans JP）
   // ・角丸なし
   // ・文字が長い場合は自動で少しだけ縮小
-  const CS = 38;
-  const COL_W = 86;
-  const PD_X = 18;
-  const PD_Y = 16;
-  const LABEL_GAP = 14;
-  const LABEL_H = 18;
-  const BOTTOM = 16;
+  const CS = 36;
+  const COL_W = 70;
+  const PD_X = 12;
+  const PD_Y = 11;
+  const LABEL_GAP = 10;
+  const LABEL_H = 16;
+  const BOTTOM = 11;
   const W = COL_W * 3 + PD_X * 2;
   const H = PD_Y + CS + LABEL_GAP + LABEL_H + BOTTOM;
   const rx = Math.round(x), ry = Math.round(y);
@@ -447,9 +459,9 @@ function drawMinimalChip(ctx, x, y, colors) {
   ctx.strokeRect(rx + .5, ry + .5, W - 1, H - 1);
 
   const drawFitText = (text, cx, y, maxW) => {
-    let fs = 11.5;
+    let fs = 10.5;
     ctx.font = `800 ${fs}px ${CARD_FONT}`;
-    while (ctx.measureText(text).width > maxW && fs > 9) {
+    while (ctx.measureText(text).width > maxW && fs > 8.5) {
       fs -= .5;
       ctx.font = `800 ${fs}px ${CARD_FONT}`;
     }
@@ -491,10 +503,17 @@ function drawPantoneCard(ctx, x, y, colors) {
   const colorH=Math.round(CH*0.60), labelH=CH-colorH;
   const fitName=(name)=>{
     if(name.length<=8) return [name];
-    if(name==='TERRACOTTA') return ['TERRA','COTTA'];
-    if(name==='PERIWINKLE') return ['PERI','WINKLE'];
-    if(name==='CHARCOAL') return ['CHAR','COAL'];
-    return [name.slice(0,8)];
+    // スペースがあれば2行に分割
+    if(name.includes(' ')){
+      const parts=name.split(' ');
+      if(parts.length===2) return parts;
+      // 3語以上は前半・後半に分ける
+      const mid=Math.ceil(parts.length/2);
+      return [parts.slice(0,mid).join(' '),parts.slice(mid).join(' ')];
+    }
+    // 長い1語は半分に分割
+    const half=Math.ceil(name.length/2);
+    return [name.slice(0,half),name.slice(half)];
   };
   const usedNames=new Set();
   const names=colors.map(hex=>colorName(hex,usedNames));
@@ -502,8 +521,9 @@ function drawPantoneCard(ctx, x, y, colors) {
     const cx=Math.round(x+i*(CW+GAP)),cy=Math.round(y);
     ctx.save();ctx.shadowColor='rgba(75,55,92,.14)';ctx.shadowBlur=8;ctx.shadowOffsetY=2;
     ctx.fillStyle=CARD_BG;ctx.fillRect(cx,cy,CW,CH);ctx.restore();
-    ctx.fillStyle=hex;ctx.fillRect(cx,cy,CW,colorH);
-    ctx.fillStyle=CARD_BG;ctx.fillRect(cx,cy+colorH,CW,labelH);
+    // 色エリアを内側に入れて白いカードの縁を見せる
+    const M=3.5; // 白縁の幅
+    ctx.fillStyle=hex;ctx.fillRect(cx+M,cy+M,CW-M*2,colorH-M);
     ctx.strokeStyle='rgba(61,68,88,.10)';ctx.lineWidth=.6;ctx.strokeRect(cx,cy,CW,CH);
 
     const lines=fitName(names[i]);
@@ -530,7 +550,12 @@ function drawSlimLabel(ctx, x, y, colors) {
     ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=.5;ctx.strokeRect(x+PD,ry+4,SW,SW);
     ctx.fillStyle=INK;ctx.font=`800 6.7px ${CARD_FONT}`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
     const nm=names[i];
-    ctx.fillText(nm.length>11?nm.slice(0,11):nm,Math.round(x+PD+SW+7),ry+14);
+    // 長い名前は自動でフォント縮小（切り捨てない）
+    let nfs=6.7;
+    ctx.font=`800 ${nfs}px ${CARD_FONT}`;
+    const maxNameW=W-PD*2-SW-7-58; // HEX表示分を除いた幅
+    while(ctx.measureText(nm).width>maxNameW && nfs>5.2){nfs-=.3;ctx.font=`800 ${nfs}px ${CARD_FONT}`;}
+    ctx.fillText(nm,Math.round(x+PD+SW+7),ry+14);
     ctx.globalAlpha=.98;ctx.font=`800 7.2px ${CARD_FONT}`;ctx.textAlign='right';
     ctx.fillText(hex.toUpperCase(),x+W-PD,ry+14);ctx.globalAlpha=1;
   });
@@ -1446,14 +1471,13 @@ function PaletteStory() {
               <div>
                 <div style={{background:'#FBF7FD',borderRadius:6,padding:'8px',marginBottom:8,border:'1px solid #E8DDF0'}}>
                   <div style={{fontSize:'.5rem',letterSpacing:'.12em',textTransform:'uppercase',color:'#8A90A0',marginBottom:6}}>Title Ideas タイトル提案</div>
-                  <div style={{display:'flex',gap:6,marginBottom:showSugg?8:0,alignItems:'center'}}>
-                    <PBtn onClick={genSugg} style={{flex:1,padding:'7px 9px',fontSize:'.72rem'}}>タイトルを提案</PBtn>
+                  <div style={{display:'flex',gap:7,marginBottom:showSugg?8:0,alignItems:'stretch'}}>
+                    <PBtn onClick={genSugg} style={{flex:1,padding:'8px 10px',fontSize:'.76rem'}}>タイトルを提案</PBtn>
                     <button onClick={()=>setTitleLang(l=>l==='ja'?'en':'ja')}
-                      style={{display:'grid',gridTemplateColumns:'1fr 1fr',alignItems:'center',borderRadius:499,overflow:'hidden',border:'1px solid #E8DDF0',background:'#F7F3FA',flexShrink:0,cursor:'pointer',fontFamily:'inherit',fontSize:'.62rem',fontWeight:800,padding:2,minWidth:56}}>
-                      <span style={{padding:'5px 6px',borderRadius:499,textAlign:'center',background:titleLang==='ja'?'#C8A8C8':'transparent',color:titleLang==='ja'?'#fff':'#8A90A0',transition:'all .15s'}}>JP</span>
-                      <span style={{padding:'5px 6px',borderRadius:499,textAlign:'center',background:titleLang==='en'?'#C8A8C8':'transparent',color:titleLang==='en'?'#fff':'#8A90A0',transition:'all .15s'}}>EN</span>
+                      style={{display:'grid',gridTemplateColumns:'1fr 1fr',alignItems:'center',borderRadius:499,overflow:'hidden',border:'1px solid #E8DDF0',background:'#F7F3FA',flexShrink:0,cursor:'pointer',fontFamily:'inherit',fontSize:'.72rem',fontWeight:800,padding:3,minWidth:88}}>
+                      <span style={{padding:'6px 9px',borderRadius:499,textAlign:'center',background:titleLang==='ja'?'#C8A8C8':'transparent',color:titleLang==='ja'?'#fff':'#8A90A0',transition:'all .15s'}}>JP</span>
+                      <span style={{padding:'6px 9px',borderRadius:499,textAlign:'center',background:titleLang==='en'?'#C8A8C8':'transparent',color:titleLang==='en'?'#fff':'#8A90A0',transition:'all .15s'}}>EN</span>
                     </button>
-                    <button onClick={genSugg} style={{padding:'7px 10px',background:'#F7F3FA',border:'1px solid #E8DDF0',borderRadius:8,fontFamily:'inherit',fontSize:'.7rem',color:'#8A90A0',cursor:'pointer',flexShrink:0}}>↺</button>
                   </div>
                   {showSugg&&(
                     <div style={{marginTop:6,display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
