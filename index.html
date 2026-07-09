@@ -733,7 +733,9 @@ function PaletteStory() {
   const [titlePos,setTitlePos]=useState({snap:'left',offsetY:0});   // snap: left|center|right
   const [bodyPos,setBodyPos]=useState({snap:'left',offsetY:20});
   const canvasDragRef=useRef({active:false,target:null,startX:0,startY:0,startOffsetY:0});
-  const [cardScale,setCardScale]= useState(90);      // 80-120%
+  const [cardScale,setCardScale]= useState(90);      // 40-120%
+  const [cardOffsetX,setCardOffsetX]= useState(0);   // カードの左右微調整
+  const [cardOffsetY,setCardOffsetY]= useState(0);   // カードの上下微調整
   const [textOffset,setTextOffset]=useState(20);     // 0-80px
   const [titleFont,setTitleFont]= useState("'Playfair Display', serif");
   const [bodyFont, setBodyFont] = useState("'DM Sans', sans-serif");
@@ -767,7 +769,7 @@ function PaletteStory() {
     imageSrc: img ? img.src : null,
     colors, bgColor, bgSugs, selBg, strategy, colorHistory,
     photoSize, fitMode, crop, finalCrop, photoFrame,
-    cardStyle, cardAlign, cardScale,
+    cardStyle, cardAlign, cardScale, cardOffsetX, cardOffsetY,
     titleTxt, bodyTxt, titleAlign, bodyAlign, titleLang, titleSeed,
     titlePos, bodyPos, textOffset,
     titleFont, bodyFont, titleSize, bodySize, titleColor, bodyColor, titleBold, bodyBold,
@@ -795,6 +797,8 @@ function PaletteStory() {
     setCardStyle(st.cardStyle||'pantone');
     setCardAlign(st.cardAlign||'right');
     setCardScale(st.cardScale||90);
+    setCardOffsetX(st.cardOffsetX||0);
+    setCardOffsetY(st.cardOffsetY||0);
     setTitleTxt(st.titleTxt||'');
     setBodyTxt(st.bodyTxt||'');
     setTitleAlign(st.titleAlign||'left');
@@ -1033,10 +1037,11 @@ function PaletteStory() {
       if(cardAlign==='left') cx=photoX-OUTSET;
       else if(cardAlign==='right') cx=photoX+photoW-cW+OUTSET;
       else cx=photoX+(photoW-cW)/2;
+      cx+=cardOffsetX;
       // キャンバス外に出ないよう自動補正
       cx=Math.max(2, Math.min(CW-cW-2, cx));
       // 重なり量: カードの上30%が写真に重なる
-      const cy=photoBtm-Math.round(cH*0.30);
+      const cy=photoBtm-Math.round(cH*0.30)+cardOffsetY;
       // scaleしてから描画
       ctx.save();
       ctx.translate(cx,cy);
@@ -1079,7 +1084,7 @@ function PaletteStory() {
     // 本文（空なら描画しない）
     if (bodyTxt.trim()) {
       const bSnap=bodyPos.snap||bodyAlign;
-      const bY=titleBaseY+bodyPos.offsetY-bodyGap; // bodyGapでタイトルとの間隔を調整
+      const bY=titleBaseY+bodyPos.offsetY+bodyGap; // bodyGap：左(マイナス)で間隔が狭く、右(プラス)で広くなる
       ctx.fillStyle=bodyColor; const bw=bodyBold===true?700:400; ctx.font=`${bw} ${bodySize}px ${bodyFont}`;
       ctx.textBaseline='alphabetic';
       const blines=wrapText(ctx,bodyTxt.trim(),textW);
@@ -1096,7 +1101,7 @@ function PaletteStory() {
     }
     // 両方空ならガイド
 
-  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,photoSize,photoFrame,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,bodyGap,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos]);
+  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,cardOffsetX,cardOffsetY,photoSize,photoFrame,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,bodyGap,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos]);
 
   useEffect(()=>{render();},[render]);
   // フォント変更時に遅延再描画（Caveat等の読み込み待ち）
@@ -1613,7 +1618,16 @@ function PaletteStory() {
                   ))}
                 </div>
                 <Lbl t="Card Size" sub={`${cardScale}%`}/>
-                <input type="range" min={70} max={120} value={cardScale} onInput={e=>setCardScale(Number(e.target.value))} onChange={e=>setCardScale(Number(e.target.value))} style={{marginBottom:8}}/>
+                <input type="range" min={40} max={120} value={cardScale} onInput={e=>setCardScale(Number(e.target.value))} onChange={e=>setCardScale(Number(e.target.value))} style={{marginBottom:8}}/>
+                <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                  <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {cardOffsetX>0?`+${cardOffsetX}`:cardOffsetX}</span>
+                  <input type="range" min={-80} max={80} value={cardOffsetX} onInput={e=>setCardOffsetX(Number(e.target.value))} onChange={e=>setCardOffsetX(Number(e.target.value))} style={{flex:1}}/>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {cardOffsetY>0?`+${cardOffsetY}`:cardOffsetY}</span>
+                  <input type="range" min={-80} max={80} value={cardOffsetY} onInput={e=>setCardOffsetY(Number(e.target.value))} onChange={e=>setCardOffsetY(Number(e.target.value))} style={{flex:1}}/>
+                </div>
                 {colors.length===0&&<div style={{padding:'9px',background:'rgba(255,255,255,.05)',borderRadius:4,color:'rgba(255,255,255,.3)',fontSize:'.74rem',textAlign:'center',marginTop:6}}>先に色を抽出してください</div>}
               </div>
             )}
@@ -1661,7 +1675,7 @@ function PaletteStory() {
                   <input type="color" value={typeof bodyColor==='string'&&bodyColor.startsWith('#')?bodyColor:'#fff'} onChange={e=>setBodyColor(e.target.value)} style={{width:26,height:26,border:'1px solid rgba(255,255,255,.2)',borderRadius:5,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-                  <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>間隔 {bodyGap>0?`-${bodyGap}`:bodyGap}</span>
+                  <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>間隔 {bodyGap>0?`+${bodyGap}`:bodyGap}</span>
                   <input type="range" min={-40} max={80} value={bodyGap} onInput={e=>setBodyGap(Number(e.target.value))} onChange={e=>setBodyGap(Number(e.target.value))} style={{flex:1}}/>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
