@@ -1486,26 +1486,25 @@ function PaletteStory() {
                       <PBtn onClick={doExtract} full={false} style={{width:'100%',padding:'9px 8px',fontSize:'.74rem'}}>色を抽出する</PBtn>
                       <SBtn onClick={doAuto} full={false} style={{width:'100%',padding:'8px 8px',fontSize:'.74rem',fontWeight:700,display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6}}><SolidIcon name="shuffle" size={16}/> おまかせ3色</SBtn>
                     </div>
+                    {palette.length>0&&(
+                      <div style={{marginBottom:12}}>
+                        <div style={{fontSize:'.52rem',letterSpacing:'.08em',color:'#8A90A0',textTransform:'uppercase',marginBottom:6}}>Palette — タップで3色選択（{colors.length}/3）</div>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5}}>
+                          {palette.map((hex,i)=>{
+                            const sel=colors.includes(hex);
+                            const selIdx=colors.indexOf(hex);
+                            return(
+                              <button key={hex+i} onClick={()=>toggleColor(hex)}
+                                style={{aspectRatio:'1',background:hex,border:sel?'2.5px solid #3D4458':'1px solid rgba(0,0,0,.08)',borderRadius:8,cursor:'pointer',position:'relative',padding:0}}>
+                                {sel&&<span style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:'#3D4458',color:'#fff',fontSize:'.5rem',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{selIdx+1}</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     {colors.length>0&&(
                       <>
-                        {/* パレット：タップで3色選択 */}
-                        {palette.length>0&&(
-                          <div style={{marginBottom:12}}>
-                            <div style={{fontSize:'.52rem',letterSpacing:'.08em',color:'#8A90A0',textTransform:'uppercase',marginBottom:6}}>Palette — タップで3色選択（{colors.length}/3）</div>
-                            <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5}}>
-                              {palette.map((hex,i)=>{
-                                const sel=colors.includes(hex);
-                                const selIdx=colors.indexOf(hex);
-                                return(
-                                  <button key={hex+i} onClick={()=>toggleColor(hex)}
-                                    style={{aspectRatio:'1',background:hex,border:sel?'2.5px solid #3D4458':'1px solid rgba(0,0,0,.08)',borderRadius:8,cursor:'pointer',position:'relative',padding:0}}>
-                                    {sel&&<span style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:'#3D4458',color:'#fff',fontSize:'.5rem',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700}}>{selIdx+1}</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
                         {/* 最新カラー＋履歴 4列グリッド */}
                         <div style={{marginBottom:10}}>
                           <div style={{fontSize:'.52rem',letterSpacing:'.08em',color:'#8A90A0',textTransform:'uppercase',marginBottom:6}}>Colors & history</div>
