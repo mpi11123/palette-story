@@ -1522,14 +1522,14 @@ function PaletteStory() {
                             <button onClick={clearColors} style={{WebkitAppearance:'none',appearance:'none',background:'none',border:'none',padding:0,fontSize:'.56rem',letterSpacing:'.04em',color:'#B685C1',fontWeight:700,cursor:'pointer'}}>クリア</button>
                           )}
                         </div>
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:5}}>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(9,1fr)',gap:4}}>
                           {palette.map((hex,i)=>{
                             const sel=colors.includes(hex);
                             const selIdx=colors.indexOf(hex);
                             return(
                               <button key={hex+i} onClick={()=>toggleColor(hex)}
-                                style={{WebkitAppearance:'none',appearance:'none',aspectRatio:'1',backgroundColor:hex,border:sel?'2.5px solid #3D4458':'1px solid rgba(0,0,0,.08)',borderRadius:8,cursor:'pointer',position:'relative',padding:0,fontSize:'5px',color:'#000',overflow:'hidden'}}>
-                                {sel&&<span style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:'#3D4458',color:'#fff',fontSize:'.5rem',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,zIndex:2}}>{selIdx+1}</span>}
+                                style={{WebkitAppearance:'none',appearance:'none',aspectRatio:'1',backgroundColor:hex,border:sel?'2px solid #3D4458':'1px solid rgba(0,0,0,.08)',borderRadius:6,cursor:'pointer',position:'relative',padding:0,fontSize:'5px',color:'#000',overflow:'hidden'}}>
+                                {sel&&<span style={{position:'absolute',top:-3,right:-3,width:13,height:13,borderRadius:'50%',background:'#3D4458',color:'#fff',fontSize:'.42rem',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,zIndex:2}}>{selIdx+1}</span>}
                               </button>
                             );
                           })}
@@ -1542,11 +1542,13 @@ function PaletteStory() {
                         <div style={{marginBottom:10}}>
                           <div style={{fontSize:'.52rem',letterSpacing:'.08em',color:'#8A90A0',textTransform:'uppercase',marginBottom:6}}>Colors & history</div>
                           <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:5}}>
-                            {colors.length===3&&(
+                            {colors.length>0&&(
                               <button onClick={()=>{}} style={{padding:0,background:'none',border:'2px solid #C8A8C8',borderRadius:2,cursor:'default',overflow:'visible',minHeight:29}}>
                                 <div style={{fontSize:'.46rem',color:'#B685C1',fontWeight:900,letterSpacing:'.08em',lineHeight:1,marginBottom:4,textAlign:'left'}}>new</div>
-                                <div style={{display:'flex',height:20,borderRadius:1,overflow:'hidden'}}>
-                                  {colors.map(hex=>(<div key={hex} style={{flex:1,background:hex}}/>))}
+                                <div style={{display:'flex',height:20,borderRadius:1,overflow:'hidden',gap:1}}>
+                                  {[0,1,2].map(i=>(
+                                    <div key={i} style={{flex:1,background:colors[i]||'rgba(0,0,0,.05)',border:colors[i]?'none':'1px dashed rgba(0,0,0,.15)',boxSizing:'border-box'}}/>
+                                  ))}
                                 </div>
                               </button>
                             )}
