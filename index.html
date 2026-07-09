@@ -1032,7 +1032,7 @@ function PaletteStory() {
       const {w:cW0,h:cH0}=getCardDims(cardStyle);
       const cW=cW0*sc, cH=cH0*sc;
       // Left: 左下にはみ出す, Center: 中央, Right: 右下にはみ出す
-      const OUTSET=cW*0.30; // カードの30%を外にはみ出す（雑誌風）
+      const OUTSET=cW*0.15; // カードの15%を外にはみ出す（雑誌風）。大きすぎるとスライダーの可動域が無くなるため控えめに
       let base;
       if(cardAlign==='left') base=photoX-OUTSET;
       else if(cardAlign==='right') base=photoX+photoW-cW+OUTSET;
