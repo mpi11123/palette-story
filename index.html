@@ -343,7 +343,7 @@ function pickMany(px, count=14) {
     // 彩度と面積のバランス、鮮やかさ優先
     const score=info.s*2.2 + Math.sqrt(area)*0.7 - (tooWhite||tooBlack?1.5:0);
     return {c,area,score,info};
-  }).filter(o=>!(o.info.br>248&&o.info.s<.08) && o.info.br>15)
+  }).filter(o=>o.area>0.001 && !(o.info.br>248&&o.info.s<.08) && o.info.br>15)
     .sort((a,b)=>b.score-a.score);
 
   // 色相が近すぎるものを間引いて多様性を出す
@@ -364,7 +364,7 @@ function pickMany(px, count=14) {
       result.push(o);
     }
   }
-  return result.map(o=>o.c);
+  return result.map(o=>toHex(o.c[0],o.c[1],o.c[2]));
 }
 
 function colorName(hex, usedNames=null) {
