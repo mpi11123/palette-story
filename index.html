@@ -8,6 +8,7 @@
 <title>palette story. v5</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
+button{-webkit-appearance:none;appearance:none;font:inherit;}
 html,body{height:100dvh;overflow:hidden;background:#F7F3FA;}
 #root{height:100dvh;}
 input[type=range]{touch-action:pan-x;}
@@ -1495,7 +1496,7 @@ function PaletteStory() {
                             const selIdx=colors.indexOf(hex);
                             return(
                               <button key={hex+i} onClick={()=>toggleColor(hex)}
-                                style={{aspectRatio:'1',backgroundColor:hex,border:sel?'2.5px solid #3D4458':'1px solid rgba(0,0,0,.08)',borderRadius:8,cursor:'pointer',position:'relative',padding:0,fontSize:'5px',color:'#000',overflow:'hidden'}}>
+                                style={{WebkitAppearance:'none',appearance:'none',aspectRatio:'1',backgroundColor:hex,border:sel?'2.5px solid #3D4458':'1px solid rgba(0,0,0,.08)',borderRadius:8,cursor:'pointer',position:'relative',padding:0,fontSize:'5px',color:'#000',overflow:'hidden'}}>
                                 {sel&&<span style={{position:'absolute',top:-4,right:-4,width:16,height:16,borderRadius:'50%',background:'#3D4458',color:'#fff',fontSize:'.5rem',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,zIndex:2}}>{selIdx+1}</span>}
                               </button>
                             );
