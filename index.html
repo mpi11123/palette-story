@@ -245,8 +245,8 @@ function pick3(px, strategy=0) {
   if (!px.length) return [];
 
   // くすみ・同系色に寄りすぎないように、面積・彩度・明度・色相のバランスで選ぶ
-  const sample = px.filter((_, i) => i % 3 === 0); // 1/3サンプリングで精度とスピードのバランス
-  const centers = kmeans(sample, 24, strategy * 11 + 5); // クラスター数を増やして精度向上
+  const sample = px.filter((_, i) => i % 2 === 0); // 1/2サンプリングで小面積色を逃さない
+  const centers = kmeans(sample, 32, strategy * 11 + 5); // クラスター数を増やして小面積の鮮やか色も拾う
 
   const clusterCount = centers.map(c => ({ c, n: 0 }));
   for (const p of sample) {
@@ -265,11 +265,11 @@ function pick3(px, strategy=0) {
     const tooWhite=info.br>242 && info.s<.12;
     const tooBlack=info.br<24;
     const midLight=1-Math.min(1,Math.abs(info.br-150)/150);
-    const accentBoost=info.s*2.25 + (info.s>.45?0.65:0);
-    const areaBoost=Math.sqrt(area)*0.85;
-    const score=accentBoost + areaBoost + midLight*.28 - (tooWhite||tooBlack?1.0:0);
+    const accentBoost=info.s*3.2 + (info.s>.4?0.9:0) + (info.s>.6?0.6:0); // 高彩度を大きく優遇
+    const areaBoost=Math.sqrt(area)*0.55; // 面積の影響を下げる
+    const score=accentBoost + areaBoost + midLight*.22 - (tooWhite||tooBlack?1.2:0);
     return {c,area,score,info};
-  }).filter(o=>o.area>.002).sort((a,b)=>b.score-a.score);
+  }).filter(o=>o.area>.0008 || o.info.s>.4).sort((a,b)=>b.score-a.score); // 鮮やかな色は小面積でも残す
 
   // retryごとに少し観点を変える
   if (strategy % 4 === 1) scored=scored.slice().sort((a,b)=>b.info.s-a.info.s || b.score-a.score);
@@ -641,6 +641,7 @@ function PaletteStory() {
   const [bodyTxt,  setBodyTxt]  = useState('');
   const [titleAlign,setTitleAlign]=useState('left');
   const [bodyAlign, setBodyAlign] =useState('left');
+  const [bodyGap, setBodyGap] = useState(0); // タイトルと本文の間隔調整
   const [titleLang,setTitleLang]= useState('ja');
   const [titleSeed,setTitleSeed]= useState(0);
   const [suggestions,setSuggestions]=useState([]);
@@ -950,9 +951,17 @@ function PaletteStory() {
       const taX=tSnap==='center'?CW/2:tSnap==='left'?PAD:CW-PAD;
       const tY=curY+titlePos.offsetY;
       ctx.fillStyle=titleColor; const tw=titleBold===true?700:400; ctx.font=`${tw} ${titleSize}px ${titleFont}`;
-      ctx.textAlign=tSnap; ctx.textBaseline='alphabetic';
+      ctx.textBaseline='alphabetic';
       const tlines=wrapText(ctx,titleTxt.trim(),textW);
-      tlines.forEach(l=>{ctx.fillText(l,taX,tY+tlines.indexOf(l)*titleSize*1.4);});
+      ctx.textAlign='left';
+      tlines.forEach((l,li)=>{
+        const lw=ctx.measureText(l).width;
+        let lx;
+        if(tSnap==='center') lx=CW/2-lw/2;
+        else if(tSnap==='right') lx=CW-PAD-lw;
+        else lx=PAD;
+        ctx.fillText(l,lx,tY+li*titleSize*1.4);
+      });
       titleBaseY=tY+tlines.length*titleSize*1.4+20;
       curY=titleBaseY;
       // 選択枠（デバッグ用は省略）
@@ -960,16 +969,24 @@ function PaletteStory() {
     // 本文（空なら描画しない）
     if (bodyTxt.trim()) {
       const bSnap=bodyPos.snap||bodyAlign;
-      const baX=bSnap==='center'?CW/2:bSnap==='left'?PAD:CW-PAD;
-      const bY=titleBaseY+bodyPos.offsetY;
+      const bY=titleBaseY+bodyPos.offsetY-bodyGap; // bodyGapでタイトルとの間隔を調整
       ctx.fillStyle=bodyColor; const bw=bodyBold===true?700:400; ctx.font=`${bw} ${bodySize}px ${bodyFont}`;
-      ctx.textAlign=bSnap; ctx.textBaseline='alphabetic';
+      ctx.textBaseline='alphabetic';
       const blines=wrapText(ctx,bodyTxt.trim(),textW);
-      blines.forEach((l,i)=>{ctx.fillText(l,baX,bY+i*bodySize*1.7);});
+      // textAlignに頼らず各行を手動配置（2行目ズレ防止）
+      ctx.textAlign='left';
+      blines.forEach((l,i)=>{
+        const lw=ctx.measureText(l).width;
+        let lx;
+        if(bSnap==='center') lx=CW/2-lw/2;
+        else if(bSnap==='right') lx=CW-PAD-lw;
+        else lx=PAD;
+        ctx.fillText(l,lx,bY+i*bodySize*1.7);
+      });
     }
     // 両方空ならガイド
 
-  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,photoSize,photoFrame,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos]);
+  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,photoSize,photoFrame,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,bodyGap,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos]);
 
   useEffect(()=>{render();},[render]);
   // フォント変更時に遅延再描画（Caveat等の読み込み待ち）
@@ -1535,6 +1552,10 @@ function PaletteStory() {
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0}}>{bodySize}px</span>
                   <input type="range" min={11} max={28} value={bodySize} onInput={e=>setBodySize(Number(e.target.value))} onChange={e=>setBodySize(Number(e.target.value))} style={{flex:1}}/>
                   <input type="color" value={typeof bodyColor==='string'&&bodyColor.startsWith('#')?bodyColor:'#fff'} onChange={e=>setBodyColor(e.target.value)} style={{width:26,height:26,border:'1px solid rgba(255,255,255,.2)',borderRadius:5,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
+                </div>
+                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                  <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>間隔 {bodyGap>0?`-${bodyGap}`:bodyGap}</span>
+                  <input type="range" min={-40} max={80} value={bodyGap} onInput={e=>setBodyGap(Number(e.target.value))} onChange={e=>setBodyGap(Number(e.target.value))} style={{flex:1}}/>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
                   <button onClick={()=>setBodyBold(false)} style={{padding:'6px 0',background:!bodyBold?'#EEE5F5':'#fff',color:!bodyBold?'#3D4458':'#8A90A0',border:`1.5px solid ${!bodyBold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',cursor:'pointer',transition:'all .15s'}}>
