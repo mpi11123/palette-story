@@ -1033,13 +1033,16 @@ function PaletteStory() {
       const cW=cW0*sc, cH=cH0*sc;
       // Left: 左下にはみ出す, Center: 中央, Right: 右下にはみ出す
       const OUTSET=cW*0.30; // カードの30%を外にはみ出す（雑誌風）
-      let cx;
-      if(cardAlign==='left') cx=photoX-OUTSET;
-      else if(cardAlign==='right') cx=photoX+photoW-cW+OUTSET;
-      else cx=photoX+(photoW-cW)/2;
-      cx+=cardOffsetX;
-      // キャンバス外に出ないよう自動補正
-      cx=Math.max(2, Math.min(CW-cW-2, cx));
+      let base;
+      if(cardAlign==='left') base=photoX-OUTSET;
+      else if(cardAlign==='right') base=photoX+photoW-cW+OUTSET;
+      else base=photoX+(photoW-cW)/2;
+      // キャンバス外に出ない範囲で、スライダーの端(±80)がちょうど左右の限界になるよう比例配分
+      const cxMin=2, cxMax=CW-cW-2;
+      const rightSlack=Math.max(0,cxMax-base);
+      const leftSlack=Math.max(0,base-cxMin);
+      let cx=cardOffsetX>=0 ? base+(cardOffsetX/80)*rightSlack : base+(cardOffsetX/80)*leftSlack;
+      cx=Math.max(cxMin, Math.min(cxMax, cx));
       // 重なり量: カードの上30%が写真に重なる
       const cy=photoBtm-Math.round(cH*0.30)+cardOffsetY;
       // scaleしてから描画
@@ -1735,10 +1738,10 @@ function PaletteStory() {
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.85,color:'#667A8C',marginBottom:10}}>
               {[
                 ['Photo','写真を選択'],
-                ['Color','色を抽出・背景色を選ぶ'],
-                ['Card','カラーカードのスタイルを選ぶ'],
+                ['Color','色を抽出してパレットから3色を選ぶ・背景色を選ぶ'],
+                ['Card','カラーカードのスタイル・大きさ・位置を選ぶ'],
                 ['Title','タイトルを入力または提案から選ぶ'],
-                ['Body','本文・日付などを入力'],
+                ['Body','本文・日付などを入力、間隔も調整できる'],
                 ['Save','画像を保存'],
               ].map(([label,desc])=>(
                 <div key={label} style={{display:'grid',gridTemplateColumns:'58px 1fr',columnGap:8,alignItems:'baseline',marginBottom:2}}>
