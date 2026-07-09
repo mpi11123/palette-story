@@ -761,6 +761,8 @@ function PaletteStory() {
   const [colorHistory, setColorHistory] = useState([]); // [{colors, bgColor}]
   const [photoSize,setPhotoSize]= useState('M');
   const [photoFrame,setPhotoFrame]= useState('none');
+  const [photoOffsetX,setPhotoOffsetX]= useState(0); // 写真の左右微調整
+  const [photoOffsetY,setPhotoOffsetY]= useState(0); // 写真の上下微調整
   const [fitMode,  setFitMode]  = useState('contain'); // 'contain' | 'trim'
   const [crop,     setCrop]     = useState(null);      // image coords
   const [finalCrop,setFinalCrop]= useState(null);
@@ -800,6 +802,7 @@ function PaletteStory() {
   const [freeTexts,setFreeTexts]=useState([]); // 自由配置テキスト: {id,text,font,size,color,bold,x,y,rotation}
   const [selectedTextId,setSelectedTextId]=useState(null);
   const freeTextGestureRef=useRef({mode:null,id:null,startX:0,startY:0,startTX:0,startTY:0,startAngle:0,startRotation:0});
+  const textItemRefs=useRef({});
   const canvasDragRef=useRef({active:false,target:null,startX:0,startY:0,startOffsetY:0});
   const [cardScale,setCardScale]= useState(90);      // 40-120%
   const [cardOffsetX,setCardOffsetX]= useState(0);   // カードの左右微調整
@@ -837,7 +840,7 @@ function PaletteStory() {
     imageSrc: img ? img.src : null,
     colors, bgColor, bgSugs, selBg, strategy, colorHistory,
     photoSize, fitMode, crop, finalCrop, photoFrame,
-    cardStyle, cardAlign, cardScale, cardOffsetX, cardOffsetY,
+    cardStyle, cardAlign, cardScale, cardOffsetX, cardOffsetY, photoOffsetX, photoOffsetY,
     titleTxt, bodyTxt, titleAlign, bodyAlign, titleLang, titleSeed,
     titlePos, bodyPos, textOffset, freeTexts,
     titleFont, bodyFont, titleSize, bodySize, titleColor, bodyColor, titleBold, bodyBold,
@@ -867,6 +870,8 @@ function PaletteStory() {
     setCardScale(st.cardScale||90);
     setCardOffsetX(st.cardOffsetX||0);
     setCardOffsetY(st.cardOffsetY||0);
+    setPhotoOffsetX(st.photoOffsetX||0);
+    setPhotoOffsetY(st.photoOffsetY||0);
     setTitleTxt(st.titleTxt||'');
     setBodyTxt(st.bodyTxt||'');
     setTitleAlign(st.titleAlign||'left');
@@ -1071,6 +1076,7 @@ function PaletteStory() {
       photoW=srcW*_sc; photoH=srcH*_sc;
       photoX=(CW-photoW)/2; photoY=PAD;
     }
+    photoX+=(photoOffsetX||0); photoY+=(photoOffsetY||0);
     const frameW=(img && photoFrame==='white')?9:0;
     const photoBtm=photoY+photoH+frameW;
 
@@ -1205,9 +1211,30 @@ function PaletteStory() {
     });
     // 両方空ならガイド
 
-  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,cardOffsetX,cardOffsetY,photoSize,photoFrame,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,bodyGap,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos,freeTexts]);
+  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,cardOffsetX,cardOffsetY,photoOffsetX,photoOffsetY,photoSize,photoFrame,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,bodyGap,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos,freeTexts]);
 
   useEffect(()=>{render();},[render]);
+
+  useEffect(()=>{
+    if(selectedTextId && textItemRefs.current[selectedTextId]){
+      textItemRefs.current[selectedTextId].scrollIntoView({behavior:'smooth',block:'nearest'});
+    }
+  },[selectedTextId]);
+
+  // ── キーボード表示検知（bottom固定パネルがキーボードに埋もれないように） ──
+  const [keyboardInset,setKeyboardInset]=useState(0);
+  useEffect(()=>{
+    if(!window.visualViewport) return;
+    const vv=window.visualViewport;
+    const onResize=()=>{
+      const kb=Math.max(0, window.innerHeight-vv.height-vv.offsetTop);
+      setKeyboardInset(kb);
+    };
+    vv.addEventListener('resize',onResize);
+    vv.addEventListener('scroll',onResize);
+    onResize();
+    return ()=>{vv.removeEventListener('resize',onResize);vv.removeEventListener('scroll',onResize);};
+  },[]);
   // フォント変更時に遅延再描画（Caveat等の読み込み待ち）
   useEffect(()=>{
     const t=setTimeout(()=>render(),200);
@@ -1630,7 +1657,7 @@ function PaletteStory() {
               style={{height:34,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <span style={{fontSize:'.86rem',lineHeight:1}}>💡</span> Hint
             </button>
-            <button aria-label="Reset" onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});setFreeTexts([]);setSelectedTextId(null);setEditingGalleryId(null);}}}
+            <button aria-label="Reset" onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});setFreeTexts([]);setSelectedTextId(null);setEditingGalleryId(null);setPhotoOffsetX(0);setPhotoOffsetY(0);}}}
               style={{height:34,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <span style={{fontSize:'1rem',fontWeight:900,lineHeight:1}}>↺</span> Reset
             </button>
@@ -1652,7 +1679,7 @@ function PaletteStory() {
       <div style={{position:'fixed',left:0,right:0,bottom:0,height:'calc(env(safe-area-inset-bottom, 0px) + 78px)',background:'#FFFFFF',zIndex:70,pointerEvents:'none'}} />
 
       {/* ── Bottom Tab Bar + Sheet ── */}
-      <div style={{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:'calc(env(safe-area-inset-bottom, 0px) + 4px)',width:'100%',maxWidth:480,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',position:'fixed',zIndex:80,boxShadow:'0 -10px 28px rgba(126,94,148,.13)'}}>
+      <div style={{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:keyboardInset>0?keyboardInset:'calc(env(safe-area-inset-bottom, 0px) + 4px)',width:'100%',maxWidth:480,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',position:'fixed',zIndex:80,boxShadow:'0 -10px 28px rgba(126,94,148,.13)',transition:'bottom .15s'}}>
 
         {/* シートパネル：タブバーの上にabsoluteで展開 */}
         {tab&&(
@@ -1661,7 +1688,7 @@ function PaletteStory() {
             background:'#FFFFFF',borderTop:'1px solid #E7DDEA',
             borderBottom:'1px solid #E7DDEA',
             overflowY:(tab==='title'||tab==='body'||tab==='text')?'auto':'visible',
-            maxHeight:(tab==='title'||tab==='body'||tab==='text')?'38dvh':'none',
+            maxHeight:(tab==='title'||tab==='body'||tab==='text')?(keyboardInset>0?'16dvh':'38dvh'):'none',
             WebkitOverflowScrolling:'touch',
             padding:'7px 18px 10px',
             zIndex:10,
@@ -1685,9 +1712,18 @@ function PaletteStory() {
                       {[['S','Small'],['M','Medium'],['L','Large']].map(([k,l])=><SBtn key={k} active={photoSize===k} onClick={()=>setPhotoSize(k)}>{l}</SBtn>)}
                     </div>
                     <Lbl t="Frame" sub="白ふち"/>
-                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
                       <SBtn active={photoFrame==='none'} onClick={()=>setPhotoFrame('none')}>None</SBtn>
                       <SBtn active={photoFrame==='white'} onClick={()=>setPhotoFrame('white')}>White Frame</SBtn>
+                    </div>
+                    <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                      <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {photoOffsetX>0?`+${photoOffsetX}`:photoOffsetX}</span>
+                      <input type="range" min={-80} max={80} value={photoOffsetX} onInput={e=>setPhotoOffsetX(Number(e.target.value))} onChange={e=>setPhotoOffsetX(Number(e.target.value))} style={{flex:1}}/>
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {photoOffsetY>0?`+${photoOffsetY}`:photoOffsetY}</span>
+                      <input type="range" min={-80} max={80} value={photoOffsetY} onInput={e=>setPhotoOffsetY(Number(e.target.value))} onChange={e=>setPhotoOffsetY(Number(e.target.value))} style={{flex:1}}/>
                     </div>
                   </>
                 )}
@@ -1917,7 +1953,7 @@ function PaletteStory() {
                 {freeTexts.map((ft,idx)=>{
                   const sel=selectedTextId===ft.id;
                   return (
-                    <div key={ft.id} onClick={()=>setSelectedTextId(ft.id)}
+                    <div key={ft.id} ref={el=>{textItemRefs.current[ft.id]=el;}} onClick={()=>setSelectedTextId(ft.id)}
                       style={{border:`1.5px solid ${sel?'#C8A8C8':'#E7DDEA'}`,background:sel?'#FBF5FC':'#fff',borderRadius:6,padding:10,marginBottom:10,cursor:'pointer'}}>
                       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
                         <input value={ft.text} onChange={e=>updateFreeText(ft.id,{text:e.target.value})} onClick={e=>e.stopPropagation()}
