@@ -736,6 +736,7 @@ function PaletteStory() {
   const [cardScale,setCardScale]= useState(90);      // 40-120%
   const [cardOffsetX,setCardOffsetX]= useState(0);   // カードの左右微調整
   const [cardOffsetY,setCardOffsetY]= useState(0);   // カードの上下微調整
+  const [cardDebug,setCardDebug]=useState(null); // 位置計算の実測値を確認するための一時デバッグ表示
   const [textOffset,setTextOffset]=useState(20);     // 0-80px
   const [titleFont,setTitleFont]= useState("'Playfair Display', serif");
   const [bodyFont, setBodyFont] = useState("'DM Sans', sans-serif");
@@ -1045,6 +1046,7 @@ function PaletteStory() {
       const leftSlack=Math.max(0,base-cxMin);
       let cx=cardOffsetX>=0 ? base+(cardOffsetX/80)*rightSlack : base+(cardOffsetX/80)*leftSlack;
       cx=Math.max(cxMin, Math.min(cxMax, cx));
+      setCardDebug({photoX:Math.round(photoX),photoW:Math.round(photoW),cW:Math.round(cW),base:Math.round(base),cxMin,cxMax:Math.round(cxMax),rightSlack:Math.round(rightSlack),leftSlack:Math.round(leftSlack),cx:Math.round(cx),rightEdge:Math.round(cx+cW)});
       // 重なり量: カードの上30%が写真に重なる
       const cy=photoBtm-Math.round(cH*0.30)+cardOffsetY;
       // scaleしてから描画
@@ -1638,6 +1640,14 @@ function PaletteStory() {
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {cardOffsetY>0?`+${cardOffsetY}`:cardOffsetY}</span>
                   <input type="range" min={-80} max={80} value={cardOffsetY} onInput={e=>setCardOffsetY(Number(e.target.value))} onChange={e=>setCardOffsetY(Number(e.target.value))} style={{flex:1}}/>
                 </div>
+                {cardDebug&&(
+                  <div style={{background:'#FBF7FD',border:'1px dashed #D9C7E3',borderRadius:4,padding:'8px 10px',fontSize:'.62rem',lineHeight:1.7,color:'#8A7A9C',marginBottom:8}}>
+                    (デバッグ表示・あとで消します)<br/>
+                    photoX:{cardDebug.photoX} photoW:{cardDebug.photoW} cW:{cardDebug.cW}<br/>
+                    base:{cardDebug.base} cxMax:{cardDebug.cxMax} rightSlack:{cardDebug.rightSlack}<br/>
+                    今のcx:{cardDebug.cx} カード右端:{cardDebug.rightEdge} (キャンバス幅405)
+                  </div>
+                )}
                 {colors.length===0&&<div style={{padding:'9px',background:'rgba(255,255,255,.05)',borderRadius:4,color:'rgba(255,255,255,.3)',fontSize:'.74rem',textAlign:'center',marginTop:6}}>先に色を抽出してください</div>}
               </div>
             )}
