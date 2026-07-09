@@ -1032,15 +1032,15 @@ function PaletteStory() {
       const {w:cW0,h:cH0}=getCardDims(cardStyle);
       const cW=cW0*sc, cH=cH0*sc;
       // Left: 左下にはみ出す, Center: 中央, Right: 右下にはみ出す
-      const OUTSET=cW*0.15; // カードの15%を外にはみ出す（雑誌風）。大きすぎるとスライダーの可動域が無くなるため控えめに
+      const OUTSET=cW*0.03; // わずかに外にはみ出す程度に抑える（スタイルや倍率が変わっても絶対に画面からはみ出させないため）
       let base;
       if(cardAlign==='left') base=photoX-OUTSET;
       else if(cardAlign==='right') base=photoX+photoW-cW+OUTSET;
       else base=photoX+(photoW-cW)/2;
-      // スライダーの±80が「実際に動ける端」になるよう比例配分。カードの20%までは
-      // 画面端からはみ出せるようにして、寄せたい時にちゃんと端まで寄せられるようにする
-      const BLEED=cW*0.20;
-      const cxMin=-BLEED, cxMax=CW-cW+BLEED;
+      // スライダーの±80が「実際に動ける端」になるよう比例配分。カードは常に画面内に完全に収まる
+      // （はみ出し量を"カード幅の%"にすると、スタイルごとに見え方がバラバラになってしまうため、
+      //   はみ出しを許可せず絶対安全な範囲にした）
+      const cxMin=2, cxMax=CW-cW-2;
       const rightSlack=Math.max(0,cxMax-base);
       const leftSlack=Math.max(0,base-cxMin);
       let cx=cardOffsetX>=0 ? base+(cardOffsetX/80)*rightSlack : base+(cardOffsetX/80)*leftSlack;
