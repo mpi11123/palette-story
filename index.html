@@ -1037,10 +1037,9 @@ function PaletteStory() {
       if(cardAlign==='left') base=photoX-OUTSET;
       else if(cardAlign==='right') base=photoX+photoW-cW+OUTSET;
       else base=photoX+(photoW-cW)/2;
-      // スライダーの±80が必ず「実際に動ける端」になるよう、はみ出し許容量(カード幅の30%まで)を
-      // 基準にして比例配分する（プリセット位置が既に端に近くても、動きが片側で死なないように）
-      const BLEED=cW*0.30;
-      const cxMin=-BLEED, cxMax=CW-cW+BLEED;
+      // スライダーの±80が「実際に動ける端」になるよう比例配分しつつ、
+      // カードが画面からはみ出さないよう完全にキャンバス内に収める
+      const cxMin=2, cxMax=CW-cW-2;
       const rightSlack=Math.max(0,cxMax-base);
       const leftSlack=Math.max(0,base-cxMin);
       let cx=cardOffsetX>=0 ? base+(cardOffsetX/80)*rightSlack : base+(cardOffsetX/80)*leftSlack;
@@ -1218,8 +1217,9 @@ function PaletteStory() {
   };
 
   // ── save (iPhone Safari対応) ──
-  const save=()=>{
-    // 保存用canvasに1080x1920で再描画
+  // ギャラリーへの保存だけを行う（共有ダイアログは出さない）。ホームボタンからの自動保存用にも使う
+  const saveSnapshotToGallery=()=>{
+    if(!img) return null; // 何も編集していない状態では保存しない
     const sv=document.createElement('canvas');
     sv.width=OUT_W; sv.height=OUT_H;
     const ctx=sv.getContext('2d');
@@ -1227,7 +1227,6 @@ function PaletteStory() {
     // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
     ctx.drawImage(previewRef.current,0,0,CW*RENDER_SCALE,CH*RENDER_SCALE,0,0,CW,CH);
     const dataUrl = sv.toDataURL('image/png');
-    shareImage(dataUrl);
     // ギャラリーに保存（サムネイル用に小さく）
     const thumb = document.createElement('canvas');
     thumb.width=240;thumb.height=426;
@@ -1239,6 +1238,11 @@ function PaletteStory() {
       try{localStorage.setItem('ps_gallery',JSON.stringify(next));}catch{}
       return next;
     });
+    return dataUrl;
+  };
+  const save=()=>{
+    const dataUrl=saveSnapshotToGallery();
+    if(dataUrl) shareImage(dataUrl);
   };
 
 
@@ -1453,7 +1457,7 @@ function PaletteStory() {
             palette story.
           </span>
           <div style={{display:'flex',gap:6,pointerEvents:'auto',alignItems:'center'}}>
-            <button aria-label="Home" onClick={(e)=>{e.stopPropagation();setShowGallery(true);}}
+            <button aria-label="Home" onClick={(e)=>{e.stopPropagation();saveSnapshotToGallery();setShowGallery(true);}}
               style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <SolidIcon name="home" size={16}/>
             </button>
