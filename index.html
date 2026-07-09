@@ -1665,11 +1665,21 @@ function PaletteStory() {
                 <div style={{fontSize:'.48rem',fontWeight:700,opacity:.72,lineHeight:1.15,marginTop:2}}>太字</div>
               </button>
             </div>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6}}>
+            <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:6,marginBottom:colors.length>0?10:0}}>
               {[['left','Left'],['center','Center'],['right','Right']].map(([v,l])=>(
                 <button key={v} onClick={()=>{setTitleAlign(v);setTitlePos(p=>({...p,snap:v}));}} style={{padding:'8px 0',background:titleAlign===v?'#EEE5F5':'#fff',color:titleAlign===v?'#3D4458':'#8A90A0',border:`1.5px solid ${titleAlign===v?'#D9C7E3':'#E7DDEA'}`,borderRadius:4,fontFamily:'inherit',fontSize:'.74rem',cursor:'pointer'}}>{l}</button>
               ))}
             </div>
+            {colors.length>0&&(
+              <>
+                <Lbl t="Color" sub="写真から色選択"/>
+                <div style={{display:'flex',gap:6,flexWrap:'wrap',marginBottom:4}}>
+                  {[...colors,...bgSugs,'#3D4458','#FFFFFF'].map((hex,i)=>(
+                    <div key={i} onClick={()=>setTitleColor(hex)} style={{width:26,height:26,background:hex,border:'1px solid #E7DDEA',cursor:'pointer'}} title={hex}/>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
