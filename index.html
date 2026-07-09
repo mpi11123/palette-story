@@ -1037,9 +1037,10 @@ function PaletteStory() {
       if(cardAlign==='left') base=photoX-OUTSET;
       else if(cardAlign==='right') base=photoX+photoW-cW+OUTSET;
       else base=photoX+(photoW-cW)/2;
-      // スライダーの±80が「実際に動ける端」になるよう比例配分しつつ、
-      // カードが画面からはみ出さないよう完全にキャンバス内に収める
-      const cxMin=2, cxMax=CW-cW-2;
+      // スライダーの±80が「実際に動ける端」になるよう比例配分。カードの20%までは
+      // 画面端からはみ出せるようにして、寄せたい時にちゃんと端まで寄せられるようにする
+      const BLEED=cW*0.20;
+      const cxMin=-BLEED, cxMax=CW-cW+BLEED;
       const rightSlack=Math.max(0,cxMax-base);
       const leftSlack=Math.max(0,base-cxMin);
       let cx=cardOffsetX>=0 ? base+(cardOffsetX/80)*rightSlack : base+(cardOffsetX/80)*leftSlack;
