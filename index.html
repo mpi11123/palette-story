@@ -29,15 +29,57 @@ const FONTS = [
   { label: "Cormorant Garamond", value: "'Cormorant Garamond', serif" },
   { label: "EB Garamond", value: "'EB Garamond', serif" },
   { label: "DM Sans", value: "'DM Sans', sans-serif" },
-  { label: "Caveat", value: "Caveat, cursive" },
   { label: "Courier Prime", value: "'Courier Prime', monospace" },
+  { label: "── English（手書き・かわいい）──", value: null, disabled: true },
+  { label: "Caveat", value: "Caveat, cursive" },
+  { label: "Dancing Script", value: "'Dancing Script', cursive" },
+  { label: "Sriracha", value: "Sriracha, cursive" },
+  { label: "Sacramento", value: "Sacramento, cursive" },
+  { label: "Homemade Apple", value: "'Homemade Apple', cursive" },
+  { label: "Pacifico", value: "Pacifico, cursive" },
   { label: "── 日本語 ──", value: null, disabled: true },
   { label: "Shippori Mincho", value: "'Shippori Mincho', serif" },
   { label: "Zen Old Mincho", value: "'Zen Old Mincho', serif" },
   { label: "Zen Maru Gothic", value: "'Zen Maru Gothic', sans-serif" },
   { label: "Zen Kaku Gothic New", value: "'Zen Kaku Gothic New', sans-serif" },
   { label: "Noto Sans JP", value: "'Noto Sans JP', sans-serif" },
+  { label: "Murecho", value: "Murecho, sans-serif" },
+  { label: "M PLUS 1p", value: "'M PLUS 1p', sans-serif" },
+  { label: "── 日本語（手書き・かわいい）──", value: null, disabled: true },
+  { label: "Yomogi", value: "'Yomogi', cursive" },
+  { label: "Kiwi Maru", value: "'Kiwi Maru', serif" },
+  { label: "Darumadrop One", value: "'Darumadrop One', cursive" },
+  { label: "Kosugi Maru", value: "'Kosugi Maru', sans-serif" },
+  { label: "Kosugi", value: "Kosugi, sans-serif" },
+  { label: "M PLUS Rounded 1c", value: "'M PLUS Rounded 1c', sans-serif" },
 ];
+
+function FontPicker({value, onChange}) {
+  const [open,setOpen]=useState(false);
+  const current = FONTS.find(f=>f.value===value);
+  return (
+    <div style={{position:'relative',marginBottom:7}}>
+      <button type="button" onClick={()=>setOpen(o=>!o)}
+        style={{width:'100%',textAlign:'left',padding:'9px 10px',border:'1.5px solid #E7DDEA',borderRadius:4,background:'#fff',fontFamily:value||'inherit',fontSize:'.95rem',color:'#3D4458',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer'}}>
+        <span>{current?current.label:'フォントを選択'}</span>
+        <span style={{fontSize:'.65rem',color:'#8A90A0',fontFamily:'inherit'}}>▾</span>
+      </button>
+      {open&&(
+        <>
+          <div onClick={()=>setOpen(false)} style={{position:'fixed',inset:0,zIndex:60}}/>
+          <div style={{position:'absolute',top:'100%',left:0,right:0,zIndex:61,background:'#fff',border:'1.5px solid #E7DDEA',borderRadius:4,marginTop:4,maxHeight:260,overflowY:'auto',boxShadow:'0 8px 24px rgba(75,55,92,.18)'}}>
+            {FONTS.map((f,i)=> f.disabled ? (
+              <div key={i} style={{padding:'7px 10px',fontSize:'.62rem',color:'#B0A8BE',letterSpacing:'.06em',background:'#FBF7FD'}}>{f.label}</div>
+            ) : (
+              <div key={i} onClick={()=>{onChange(f.value);setOpen(false);}}
+                style={{padding:'9px 10px',fontFamily:f.value,fontSize:'1rem',color: value===f.value?'#3D4458':'#4A4A55',background:value===f.value?'#F3EBF8':'#fff',cursor:'pointer'}}>{f.label}</div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 // ─────────────────────────────────────────────
 // PHOTO SIZE PRESETS (max width ratio of canvas)
@@ -1336,7 +1378,7 @@ function PaletteStory() {
   return(
     <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:'100dvh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Caveat:wght@400;600&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&family=Dancing+Script&family=Sriracha&family=Sacramento&family=Homemade+Apple&family=Pacifico&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Murecho&family=M+PLUS+1p&family=Yomogi&family=Kiwi+Maru&family=Darumadrop+One&family=Kosugi+Maru&family=Kosugi&family=M+PLUS+Rounded+1c&display=swap');
         *{box-sizing:border-box;}
         select,textarea{padding:9px 11px;border:1.5px solid #E7DDEA;border-radius:4px;font-size:.84rem;font-family:inherit;color:#3D4458;background:#FFFFFF;outline:none;width:100%;resize:none;}
         select option{background:#fff;color:#3D4458;}
@@ -1647,9 +1689,7 @@ function PaletteStory() {
                 
             <textarea
             rows={2} placeholder="タイトル…" value={titleTxt} onChange={e=>setTitleTxt(e.target.value)} style={{marginBottom:8}}/>
-            <select value={titleFont} onChange={e=>setTitleFont(e.target.value)} style={{marginBottom:7}}>
-              {FONTS.map((f,i)=><option key={i} value={f.value||''} disabled={f.disabled}>{f.label}</option>)}
-            </select>
+            <FontPicker value={titleFont} onChange={setTitleFont}/>
             <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:8}}>
               <span style={{fontSize:'.58rem',color:'#8A90A0',flexShrink:0}}>{titleSize}px</span>
               <input type="range" min={16} max={44} value={titleSize} onInput={e=>setTitleSize(Number(e.target.value))} onChange={e=>setTitleSize(Number(e.target.value))} style={{flex:1}}/>
@@ -1686,9 +1726,7 @@ function PaletteStory() {
             {tab==='body'&&(
               <div>
                 <textarea rows={3} placeholder={"ひとこと、日付、ハッシュタグなど…"} value={bodyTxt} onChange={e=>setBodyTxt(e.target.value)} style={{marginBottom:8}}/>
-                <select value={bodyFont} onChange={e=>setBodyFont(e.target.value)} style={{marginBottom:7}}>
-                  {FONTS.map((f,i)=><option key={i} value={f.value||''} disabled={f.disabled}>{f.label}</option>)}
-                </select>
+                <FontPicker value={bodyFont} onChange={setBodyFont}/>
                 <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:8}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0}}>{bodySize}px</span>
                   <input type="range" min={11} max={28} value={bodySize} onInput={e=>setBodySize(Number(e.target.value))} onChange={e=>setBodySize(Number(e.target.value))} style={{flex:1}}/>
