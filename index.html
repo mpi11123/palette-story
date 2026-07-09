@@ -1037,8 +1037,10 @@ function PaletteStory() {
       if(cardAlign==='left') base=photoX-OUTSET;
       else if(cardAlign==='right') base=photoX+photoW-cW+OUTSET;
       else base=photoX+(photoW-cW)/2;
-      // キャンバス外に出ない範囲で、スライダーの端(±80)がちょうど左右の限界になるよう比例配分
-      const cxMin=2, cxMax=CW-cW-2;
+      // スライダーの±80が必ず「実際に動ける端」になるよう、はみ出し許容量(カード幅の30%まで)を
+      // 基準にして比例配分する（プリセット位置が既に端に近くても、動きが片側で死なないように）
+      const BLEED=cW*0.30;
+      const cxMin=-BLEED, cxMax=CW-cW+BLEED;
       const rightSlack=Math.max(0,cxMax-base);
       const leftSlack=Math.max(0,base-cxMin);
       let cx=cardOffsetX>=0 ? base+(cardOffsetX/80)*rightSlack : base+(cardOffsetX/80)*leftSlack;
@@ -1228,9 +1230,9 @@ function PaletteStory() {
     shareImage(dataUrl);
     // ギャラリーに保存（サムネイル用に小さく）
     const thumb = document.createElement('canvas');
-    thumb.width=108;thumb.height=192;
-    thumb.getContext('2d').drawImage(sv,0,0,OUT_W,OUT_H,0,0,108,192);
-    const thumbUrl = thumb.toDataURL('image/jpeg',0.7);
+    thumb.width=240;thumb.height=426;
+    thumb.getContext('2d').drawImage(sv,0,0,OUT_W,OUT_H,0,0,240,426);
+    const thumbUrl = thumb.toDataURL('image/jpeg',0.85);
     const entry = {id:Date.now(),date:new Date().toLocaleDateString('ja-JP'),dataUrl,thumbUrl,editState:createEditState()};
     setGallery(prev=>{
       const next=[entry,...prev].slice(0,24); // 最大24件
@@ -1744,9 +1746,9 @@ function PaletteStory() {
                 ['Body','本文・日付などを入力、間隔も調整できる'],
                 ['Save','画像を保存'],
               ].map(([label,desc])=>(
-                <div key={label} style={{display:'grid',gridTemplateColumns:'58px 1fr',columnGap:8,alignItems:'baseline',marginBottom:2}}>
+                <div key={label} style={{marginBottom:8}}>
                   <b style={{color:'#3D4458',fontWeight:800}}>{label}</b>
-                  <span>— {desc}</span>
+                  <div style={{marginTop:1}}>{desc}</div>
                 </div>
               ))}
             </div>
