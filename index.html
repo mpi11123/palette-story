@@ -1215,26 +1215,26 @@ function PaletteStory() {
 
   useEffect(()=>{render();},[render]);
 
+  // ── 実際に見えているビューポート高さを追従（キーボード表示時にレイアウトが壊れないように） ──
+  const [vh,setVh]=useState(typeof window!=='undefined'?window.innerHeight:800);
+  useEffect(()=>{
+    if(!window.visualViewport){
+      const onResize=()=>setVh(window.innerHeight);
+      window.addEventListener('resize',onResize);
+      return ()=>window.removeEventListener('resize',onResize);
+    }
+    const vv=window.visualViewport;
+    const onResize=()=>setVh(vv.height);
+    vv.addEventListener('resize',onResize);
+    onResize();
+    return ()=>vv.removeEventListener('resize',onResize);
+  },[]);
+
   useEffect(()=>{
     if(selectedTextId && textItemRefs.current[selectedTextId]){
       textItemRefs.current[selectedTextId].scrollIntoView({behavior:'smooth',block:'nearest'});
     }
   },[selectedTextId]);
-
-  // ── キーボード表示検知（bottom固定パネルがキーボードに埋もれないように） ──
-  const [keyboardInset,setKeyboardInset]=useState(0);
-  useEffect(()=>{
-    if(!window.visualViewport) return;
-    const vv=window.visualViewport;
-    const onResize=()=>{
-      const kb=Math.max(0, window.innerHeight-vv.height-vv.offsetTop);
-      setKeyboardInset(kb);
-    };
-    vv.addEventListener('resize',onResize);
-    vv.addEventListener('scroll',onResize);
-    onResize();
-    return ()=>{vv.removeEventListener('resize',onResize);vv.removeEventListener('scroll',onResize);};
-  },[]);
   // フォント変更時に遅延再描画（Caveat等の読み込み待ち）
   useEffect(()=>{
     const t=setTimeout(()=>render(),200);
@@ -1473,11 +1473,12 @@ function PaletteStory() {
   );
 
   return(
-    <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:'100dvh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
+    <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:vh+'px',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&family=Dancing+Script&family=Sriracha&family=Sacramento&family=Homemade+Apple&family=Pacifico&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Murecho&family=M+PLUS+1p&family=Yomogi&family=Kiwi+Maru&family=Darumadrop+One&family=Kosugi+Maru&family=Kosugi&family=M+PLUS+Rounded+1c&display=swap');
         *{box-sizing:border-box;}
-        select,textarea{padding:9px 11px;border:1.5px solid #E7DDEA;border-radius:4px;font-size:.84rem;font-family:inherit;color:#3D4458;background:#FFFFFF;outline:none;width:100%;resize:none;}
+        select,textarea{padding:9px 11px;border:1.5px solid #E7DDEA;border-radius:4px;font-size:16px;font-family:inherit;color:#3D4458;background:#FFFFFF;outline:none;width:100%;resize:none;}
+        input:not([type=range]):not([type=color]):not([type=file]){font-size:16px;}
         select option{background:#fff;color:#3D4458;}
         select:focus,textarea:focus{border-color:#C8A8C8;}
         textarea::placeholder{color:#B8B0C8;}
@@ -1491,7 +1492,7 @@ function PaletteStory() {
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
       {/* ── 全画面プレビュー ── */}
-      <div style={{flex:1,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)'}}
+      <div style={{flex:1,minHeight:0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)'}}
         onClick={()=>{}}>
 
         <canvas ref={previewRef} width={CW*RENDER_SCALE} height={CH*RENDER_SCALE}
@@ -1676,19 +1677,16 @@ function PaletteStory() {
           </div>
         </div>
       </div>
-      <div style={{position:'fixed',left:0,right:0,bottom:0,height:'calc(env(safe-area-inset-bottom, 0px) + 78px)',background:'#FFFFFF',zIndex:70,pointerEvents:'none'}} />
+      {/* ── Bottom Tab Bar + Sheet（通常のflowに変更：キーボード表示時もレイアウトが崩れないように） ── */}
+      <div style={{flexShrink:0,width:'100%',background:'#FFFFFF',borderTop:'1px solid #E7DDEA',boxShadow:'0 -10px 28px rgba(126,94,148,.13)',zIndex:80}}>
 
-      {/* ── Bottom Tab Bar + Sheet ── */}
-      <div style={{position:'fixed',left:'50%',transform:'translateX(-50%)',bottom:keyboardInset>0?keyboardInset:'calc(env(safe-area-inset-bottom, 0px) + 4px)',width:'100%',maxWidth:480,background:'#FFFFFF',borderTop:'1px solid #E7DDEA',position:'fixed',zIndex:80,boxShadow:'0 -10px 28px rgba(126,94,148,.13)',transition:'bottom .15s'}}>
-
-        {/* シートパネル：タブバーの上にabsoluteで展開 */}
+        {/* シートパネル：タブバーの上に通常のflowで積む */}
         {tab&&(
           <div style={{
-            position:'absolute',bottom:'100%',left:0,right:0,
             background:'#FFFFFF',borderTop:'1px solid #E7DDEA',
             borderBottom:'1px solid #E7DDEA',
             overflowY:(tab==='title'||tab==='body'||tab==='text')?'auto':'visible',
-            maxHeight:(tab==='title'||tab==='body'||tab==='text')?(keyboardInset>0?'16dvh':'38dvh'):'none',
+            maxHeight:(tab==='title'||tab==='body'||tab==='text')?'24dvh':'none',
             WebkitOverflowScrolling:'touch',
             padding:'7px 18px 10px',
             zIndex:10,
@@ -1944,46 +1942,53 @@ function PaletteStory() {
 
             {tab==='text'&&(
               <div>
-                <PBtn onClick={addFreeText} full={true} style={{marginBottom:10}}>＋ テキストを追加</PBtn>
+                <PBtn onClick={addFreeText} full={true} style={{padding:'8px 8px',fontSize:'.78rem',marginBottom:8}}>＋ テキストを追加</PBtn>
                 {freeTexts.length===0&&(
-                  <div style={{fontSize:'.7rem',color:'#8A90A0',textAlign:'center',padding:'10px 0'}}>
-                    追加すると、プレビュー上を指でドラッグして自由に動かせます。2本指でひねると斜めに回転できます。
+                  <div style={{fontSize:'.68rem',color:'#8A90A0',textAlign:'center',padding:'6px 0'}}>
+                    追加後はプレビュー上でドラッグ移動・2本指で回転できます。
                   </div>
                 )}
                 {freeTexts.map((ft,idx)=>{
                   const sel=selectedTextId===ft.id;
+                  if(!sel){
+                    return (
+                      <div key={ft.id} ref={el=>{textItemRefs.current[ft.id]=el;}} onClick={()=>setSelectedTextId(ft.id)}
+                        style={{display:'flex',alignItems:'center',gap:6,border:'1px solid #E7DDEA',background:'#fff',borderRadius:5,padding:'6px 8px',marginBottom:6,cursor:'pointer'}}>
+                        <span style={{flex:1,fontSize:'.76rem',color:'#3D4458',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',fontFamily:ft.font}}>{ft.text||'（空）'}</span>
+                        <button onClick={(e)=>{e.stopPropagation();deleteFreeText(ft.id);}} style={{width:24,height:24,flexShrink:0,border:'none',background:'none',color:'#B685C1',cursor:'pointer',fontSize:'.72rem'}}>🗑</button>
+                      </div>
+                    );
+                  }
                   return (
-                    <div key={ft.id} ref={el=>{textItemRefs.current[ft.id]=el;}} onClick={()=>setSelectedTextId(ft.id)}
-                      style={{border:`1.5px solid ${sel?'#C8A8C8':'#E7DDEA'}`,background:sel?'#FBF5FC':'#fff',borderRadius:6,padding:10,marginBottom:10,cursor:'pointer'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
-                        <input value={ft.text} onChange={e=>updateFreeText(ft.id,{text:e.target.value})} onClick={e=>e.stopPropagation()}
-                          placeholder="テキスト" style={{flex:1,padding:'7px 9px',border:'1px solid #E7DDEA',borderRadius:4,fontFamily:'inherit',fontSize:'.8rem'}}/>
-                        <button onClick={(e)=>{e.stopPropagation();deleteFreeText(ft.id);}} style={{width:30,height:30,flexShrink:0,border:'1px solid #E7DDEA',borderRadius:4,background:'#fff',color:'#B685C1',cursor:'pointer',fontSize:'.85rem'}}>🗑</button>
+                    <div key={ft.id} ref={el=>{textItemRefs.current[ft.id]=el;}}
+                      style={{border:'1.5px solid #C8A8C8',background:'#FBF5FC',borderRadius:6,padding:9,marginBottom:6}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:6}}>
+                        <input value={ft.text} onChange={e=>updateFreeText(ft.id,{text:e.target.value})}
+                          placeholder="テキスト" style={{flex:1,padding:'6px 8px',border:'1px solid #E7DDEA',borderRadius:4,fontFamily:'inherit'}}/>
+                        <button onClick={()=>deleteFreeText(ft.id)} style={{width:28,height:28,flexShrink:0,border:'1px solid #E7DDEA',borderRadius:4,background:'#fff',color:'#B685C1',cursor:'pointer',fontSize:'.8rem'}}>🗑</button>
+                        <button onClick={()=>setSelectedTextId(null)} style={{width:28,height:28,flexShrink:0,border:'1px solid #E7DDEA',borderRadius:4,background:'#fff',color:'#8A90A0',cursor:'pointer',fontSize:'.7rem'}}>閉</button>
                       </div>
-                      <div onClick={e=>e.stopPropagation()}>
-                        <FontPicker value={ft.font} onChange={v=>updateFreeText(ft.id,{font:v})}/>
-                        <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:8}}>
-                          <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0}}>{ft.size}px</span>
-                          <input type="range" min={11} max={60} value={ft.size} onInput={e=>updateFreeText(ft.id,{size:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{size:Number(e.target.value)})} style={{flex:1}}/>
-                          <input type="color" value={typeof ft.color==='string'&&ft.color.startsWith('#')?ft.color:'#3D4458'} onChange={e=>updateFreeText(ft.id,{color:e.target.value})} style={{width:26,height:26,border:'1px solid rgba(0,0,0,.1)',borderRadius:5,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
-                        </div>
-                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
-                          <button onClick={()=>updateFreeText(ft.id,{bold:false})} style={{padding:'6px 0',background:!ft.bold?'#EEE5F5':'#fff',color:!ft.bold?'#3D4458':'#8A90A0',border:`1.5px solid ${!ft.bold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',fontSize:'.7rem',cursor:'pointer'}}>Regular</button>
-                          <button onClick={()=>updateFreeText(ft.id,{bold:true})} style={{padding:'6px 0',background:ft.bold?'#EEE5F5':'#fff',color:ft.bold?'#3D4458':'#8A90A0',border:`1.5px solid ${ft.bold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',fontSize:'.7rem',fontWeight:700,cursor:'pointer'}}>Bold</button>
-                        </div>
-                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:colors.length>0?8:0}}>
-                          <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>回転 {ft.rotation?Math.round(ft.rotation):0}°</span>
-                          <input type="range" min={-180} max={180} value={Math.round(ft.rotation||0)} onInput={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} style={{flex:1}}/>
-                        </div>
-                        {colors.length>0&&(
-                          <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                            {[...colors,...bgSugs,'#3D4458','#FFFFFF'].map((hex,i)=>(
-                              <div key={i} onClick={()=>updateFreeText(ft.id,{color:hex})} style={{width:22,height:22,background:hex,border:'1px solid #E7DDEA',cursor:'pointer'}} title={hex}/>
-                            ))}
-                          </div>
-                        )}
+                      <FontPicker value={ft.font} onChange={v=>updateFreeText(ft.id,{font:v})}/>
+                      <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
+                        <span style={{fontSize:'.54rem',color:'#8A90A0',flexShrink:0}}>{ft.size}px</span>
+                        <input type="range" min={11} max={60} value={ft.size} onInput={e=>updateFreeText(ft.id,{size:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{size:Number(e.target.value)})} style={{flex:1}}/>
+                        <input type="color" value={typeof ft.color==='string'&&ft.color.startsWith('#')?ft.color:'#3D4458'} onChange={e=>updateFreeText(ft.id,{color:e.target.value})} style={{width:24,height:24,border:'1px solid rgba(0,0,0,.1)',borderRadius:5,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
                       </div>
-                      {sel&&<div style={{fontSize:'.62rem',color:'#B685C1',marginTop:8,fontWeight:700}}>✓ 選択中（プレビューをドラッグで移動・2本指で回転）</div>}
+                      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5,marginBottom:6}}>
+                        <button onClick={()=>updateFreeText(ft.id,{bold:false})} style={{padding:'5px 0',background:!ft.bold?'#EEE5F5':'#fff',color:!ft.bold?'#3D4458':'#8A90A0',border:`1.5px solid ${!ft.bold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',fontSize:'.68rem',cursor:'pointer'}}>Regular</button>
+                        <button onClick={()=>updateFreeText(ft.id,{bold:true})} style={{padding:'5px 0',background:ft.bold?'#EEE5F5':'#fff',color:ft.bold?'#3D4458':'#8A90A0',border:`1.5px solid ${ft.bold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',fontSize:'.68rem',fontWeight:700,cursor:'pointer'}}>Bold</button>
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:colors.length>0?6:0}}>
+                        <span style={{fontSize:'.54rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>回転 {ft.rotation?Math.round(ft.rotation):0}°</span>
+                        <input type="range" min={-180} max={180} value={Math.round(ft.rotation||0)} onInput={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} style={{flex:1}}/>
+                      </div>
+                      {colors.length>0&&(
+                        <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                          {[...colors,...bgSugs,'#3D4458','#FFFFFF'].map((hex,i)=>(
+                            <div key={i} onClick={()=>updateFreeText(ft.id,{color:hex})} style={{width:20,height:20,background:hex,border:'1px solid #E7DDEA',cursor:'pointer'}} title={hex}/>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1994,7 +1999,7 @@ function PaletteStory() {
         )}
 
         {/* タブ一覧（常に表示） */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:0}}>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:0,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
           {TABS.map(({id,label,icon,done})=>(
             <button key={id} onClick={()=>setTab(tab===id?null:id)}
               style={{padding:'7px 0 6px',border:'none',background:tab===id?'#F2E9F6':'#fff',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:3,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`,color:tab===id?'#3D4458':'#8A90A0'}}>
