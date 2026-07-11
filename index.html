@@ -372,8 +372,11 @@ function pick3(px, strategy=0) {
 // パレット用に多色を抽出（21色）
 function pickMany(px, count=21) {
   if (!px.length) return [];
+
+  // 実際に Color タブで使われるパレット抽出。
+  // 暗い影色・茶色・グレーに偏らず、写真内の鮮やかな小面積色も残す。
   const sample = px.filter((_, i) => i % 2 === 0);
-  const centers = kmeans(sample, 48, 17);
+  const centers = kmeans(sample, 64, 29);
   const clusters = centers.map(c => ({c,n:0}));
   for(const p of sample){
     let bi=0,bd=Infinity;
@@ -383,70 +386,111 @@ function pickMany(px, count=21) {
     }
     clusters[bi].n++;
   }
+
   const total=Math.max(1,sample.length);
   const candidates=clusters.map(({c,n})=>{
-    const info=rgbInfo(c), area=n/total;
-    const chroma=info.s;
-    const pastel=(info.br>165&&info.br<240&&info.s>.12)?0.55:0;
-    const vivid=(info.s>.48&&info.br>55&&info.br<238)?0.9:0;
-    const neutralPenalty=(info.s<.10&&info.br<205)?0.35:0;
-    const extremePenalty=(info.br<24||info.br>247)?1.1:0;
-    const score=Math.sqrt(area)*0.75+chroma*1.8+pastel+vivid-neutralPenalty-extremePenalty;
-    return {c,info,area,score,hex:toHex(...c)};
-  }).filter(o=>o.area>.00045 && o.info.br>18 && o.info.br<249);
+    const info=rgbInfo(c);
+    const area=n/total;
+    const isDark=info.br<55;
+    const isNearNeutral=info.s<.12;
+    const isBrown=(info.h<55 || info.h>345) && info.s<.58 && info.br<175;
+    const vivid=info.s>.48 && info.br>65 && info.br<238;
+    const pastel=info.br>172 && info.br<242 && info.s>.16;
+    const lightColor=info.br>185 && info.s>.14;
 
-  // 色相帯ごとに良い色を先に確保し、茶色・暗色だけに偏るのを防ぐ。
+    // 面積は参考程度。彩度・明るさ・アクセント性を強く優先。
+    let score = info.s*4.2 + Math.sqrt(area)*0.28;
+    if(vivid) score += 2.2;
+    if(pastel) score += 1.15;
+    if(lightColor) score += .65;
+    if(isDark) score -= 2.0;
+    if(isNearNeutral) score -= 1.25;
+    if(isBrown) score -= .75;
+
+    return {c,info,area,score,hex:toHex(...c),vivid,pastel,isDark,isNearNeutral,isBrown};
+  }).filter(o=>o.area>.00025 && o.info.br>18 && o.info.br<249);
+
+  const chosen=[];
+  const add=o=>{
+    if(!o || chosen.some(x=>x.hex===o.hex)) return false;
+    const duplicate=chosen.some(x=>
+      hueDiff(x.info.h,o.info.h)<13 &&
+      Math.abs(x.info.light-o.info.light)<24 &&
+      Math.abs(x.info.s-o.info.s)<.18
+    );
+    if(duplicate) return false;
+    chosen.push(o);
+    return true;
+  };
+
+  // 1) 色相帯ごとに最も鮮やかな候補を確保する。
   const hueBins=Array.from({length:12},()=>[]);
   for(const o of candidates){
-    const bin=Math.floor(((o.info.h%360)+360)%360/30)%12;
+    const bin=Math.floor((((o.info.h%360)+360)%360)/30)%12;
     hueBins[bin].push(o);
   }
   hueBins.forEach(bin=>bin.sort((a,b)=>b.score-a.score));
-  const chosen=[];
-  const add=(o)=>{
-    if(!o||chosen.includes(o))return;
-    const duplicate=chosen.some(x=>hueDiff(x.info.h,o.info.h)<10&&Math.abs(x.info.light-o.info.light)<18&&Math.abs(x.info.s-o.info.s)<.14);
-    if(!duplicate)chosen.push(o);
-  };
-  // vivid/pastel を色相順に確保
-  for(const bin of hueBins) add(bin.find(o=>o.info.s>.28&&o.info.br>55));
-  // 明るい色を最低限残す
-  candidates.filter(o=>o.info.br>185).sort((a,b)=>b.score-a.score).slice(0,6).forEach(add);
-  // 面積がある代表色も残す
-  candidates.slice().sort((a,b)=>b.area-a.area).slice(0,8).forEach(add);
-  // 残りを総合点で補充
+  for(const bin of hueBins){
+    add(bin.find(o=>o.vivid) || bin.find(o=>o.pastel));
+  }
+
+  // 2) 小面積でも鮮やかな色を優先して追加。
   candidates.slice().sort((a,b)=>b.score-a.score).forEach(add);
+
+  // 3) 最後に面積のある代表色で補う。
+  candidates.slice().sort((a,b)=>b.area-a.area).forEach(add);
+
   return chosen.slice(0,count).map(o=>o.hex);
 }
 
-// パレットから「アクセント・明るい色・代表色」の役割で3色を選ぶ。
+// パレットから、見た目の役割が違う3色を選ぶ。
+// 1色目=鮮やかな主役、2色目=別色相の明るい色、3色目=全体を支える代表色。
 function pickDiverse3(hexes, start=0) {
   if (!hexes.length) return [];
   const items=hexes.map((hex,index)=>({
     hex,index,
     rgb:[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)]
   })).map(o=>({...o,info:rgbInfo(o.rgb)}));
-  const rotate=(arr,n)=>arr.slice(n%arr.length).concat(arr.slice(0,n%arr.length));
-  const pool=rotate(items,Math.max(0,start));
+
+  const n=items.length;
+  const offset=((start%n)+n)%n;
+  const rotated=items.slice(offset).concat(items.slice(0,offset));
   const selected=[];
   const add=o=>{if(o&&!selected.some(x=>x.hex===o.hex))selected.push(o);};
 
-  // 1: 写真内の鮮やかなアクセント
-  add(pool.slice().sort((a,b)=>(b.info.s*1.8+Math.min(b.info.br,210)/500)-(a.info.s*1.8+Math.min(a.info.br,210)/500))[0]);
-  // 2: 暗すぎない明るい色・パステル
-  add(pool.filter(o=>o.info.br>165).sort((a,b)=>{
-    const da=selected.length?hueDiff(a.info.h,selected[0].info.h):0;
-    const db=selected.length?hueDiff(b.info.h,selected[0].info.h):0;
-    return (db+b.info.s*55)-(da+a.info.s*55);
-  })[0]);
-  // 3: 既存2色と十分違う代表色
-  const remaining=pool.filter(o=>!selected.some(x=>x.hex===o.hex));
-  add(remaining.sort((a,b)=>{
-    const ad=Math.min(...selected.map(s=>toneDistance(a.rgb,s.rgb)));
-    const bd=Math.min(...selected.map(s=>toneDistance(b.rgb,s.rgb)));
+  const colorful=rotated.filter(o=>o.info.s>.38 && o.info.br>68 && o.info.br<238);
+  const lightColor=rotated.filter(o=>o.info.br>175 && o.info.s>.16);
+  const usable=rotated.filter(o=>o.info.br>48 && o.info.br<240);
+
+  // 1. 写真の中で一番「色」として目立つ色。
+  add(colorful.slice().sort((a,b)=>
+    (b.info.s*2.4 + b.info.br/500) - (a.info.s*2.4 + a.info.br/500)
+  )[0]);
+
+  // 2. 一色目と色相が離れた、明るい色または別の鮮やかな色。
+  if(selected.length){
+    const first=selected[0];
+    add(lightColor.slice().sort((a,b)=>{
+      const as=hueDiff(a.info.h,first.info.h)*1.5 + a.info.s*90 + a.info.br*.18;
+      const bs=hueDiff(b.info.h,first.info.h)*1.5 + b.info.s*90 + b.info.br*.18;
+      return bs-as;
+    })[0]);
+  }
+
+  // 3. 既存2色と最も離れた代表色。ただし暗色・ほぼ無彩色は後回し。
+  const thirdPool=usable.filter(o=>!selected.some(x=>x.hex===o.hex));
+  add(thirdPool.slice().sort((a,b)=>{
+    const ad=Math.min(...selected.map(s=>toneDistance(a.rgb,s.rgb))) + a.info.s*55 + (a.info.br>125?18:0);
+    const bd=Math.min(...selected.map(s=>toneDistance(b.rgb,s.rgb))) + b.info.s*55 + (b.info.br>125?18:0);
     return bd-ad;
   })[0]);
-  for(const o of pool){if(selected.length>=3)break;add(o);}
+
+  // 足りないときのみ残りから補充。
+  for(const o of colorful){if(selected.length>=3)break;add(o);}
+  for(const o of lightColor){if(selected.length>=3)break;add(o);}
+  for(const o of usable){if(selected.length>=3)break;add(o);}
+  for(const o of rotated){if(selected.length>=3)break;add(o);}
+
   return selected.slice(0,3).map(o=>o.hex);
 }
 
