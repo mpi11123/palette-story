@@ -9,8 +9,9 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 button{-webkit-appearance:none;appearance:none;font:inherit;}
-html,body{height:100dvh;overflow:hidden;background:#F7F3FA;overscroll-behavior:none;position:fixed;width:100%;}
-#root{height:100dvh;}
+html,body{height:100%;overflow:hidden;background:#F7F3FA;overscroll-behavior:none;width:100%;}
+body{position:fixed;inset:0;}
+#root{height:var(--app-height,100dvh);position:fixed;left:0;right:0;top:var(--app-top,0px);overflow:hidden;}
 input[type=range]{touch-action:pan-x;}
 </style>
 </head>
@@ -37,6 +38,8 @@ const FONTS = [
   { label: "Sacramento", value: "Sacramento, cursive" },
   { label: "Homemade Apple", value: "'Homemade Apple', cursive" },
   { label: "Pacifico", value: "Pacifico, cursive" },
+  { label: "Covered By Your Grace", value: "'Covered By Your Grace', cursive" },
+  { label: "RocknRoll One", value: "'RocknRoll One', sans-serif" },
   { label: "── 日本語 ──", value: null, disabled: true },
   { label: "Shippori Mincho", value: "'Shippori Mincho', serif" },
   { label: "Zen Old Mincho", value: "'Zen Old Mincho', serif" },
@@ -370,66 +373,81 @@ function pick3(px, strategy=0) {
 function pickMany(px, count=21) {
   if (!px.length) return [];
   const sample = px.filter((_, i) => i % 2 === 0);
-  const centers = kmeans(sample, Math.max(count+10, 28), 5);
-  const clusterCount = centers.map(c => ({ c, n: 0 }));
-  for (const p of sample) {
-    let bi=0, bd=Infinity;
-    for (let i=0;i<centers.length;i++){const d=dist(p,centers[i]);if(d<bd){bd=d;bi=i;}}
-    clusterCount[bi].n++;
+  const centers = kmeans(sample, 48, 17);
+  const clusters = centers.map(c => ({c,n:0}));
+  for(const p of sample){
+    let bi=0,bd=Infinity;
+    for(let i=0;i<centers.length;i++){
+      const d=dist(p,centers[i]);
+      if(d<bd){bd=d;bi=i;}
+    }
+    clusters[bi].n++;
   }
   const total=Math.max(1,sample.length);
-  let scored=clusterCount.map(({c,n})=>{
-    const info=rgbInfo(c);
-    const area=n/total;
-    const tooWhite=info.br>245 && info.s<.10;
-    const tooBlack=info.br<20;
-    // 彩度と面積のバランス、鮮やかさ優先
-    const score=info.s*2.2 + Math.sqrt(area)*0.7 - (tooWhite||tooBlack?1.5:0);
-    return {c,area,score,info};
-  }).filter(o=>o.area>0.001 && !(o.info.br>248&&o.info.s<.08) && o.info.br>15)
-    .sort((a,b)=>b.score-a.score);
+  const candidates=clusters.map(({c,n})=>{
+    const info=rgbInfo(c), area=n/total;
+    const chroma=info.s;
+    const pastel=(info.br>165&&info.br<240&&info.s>.12)?0.55:0;
+    const vivid=(info.s>.48&&info.br>55&&info.br<238)?0.9:0;
+    const neutralPenalty=(info.s<.10&&info.br<205)?0.35:0;
+    const extremePenalty=(info.br<24||info.br>247)?1.1:0;
+    const score=Math.sqrt(area)*0.75+chroma*1.8+pastel+vivid-neutralPenalty-extremePenalty;
+    return {c,info,area,score,hex:toHex(...c)};
+  }).filter(o=>o.area>.00045 && o.info.br>18 && o.info.br<249);
 
-  // 色相が近すぎるものを間引いて多様性を出す
-  const result=[];
-  for(const o of scored){
-    if(result.length>=count) break;
-    const dup=result.some(r=>{
-      const a=r.info,b=o.info;
-      return hueDiff(a.h,b.h)<14 && Math.abs(a.light-b.light)<22 && Math.abs(a.s-b.s)<.18;
-    });
-    if(!dup) result.push(o);
+  // 色相帯ごとに良い色を先に確保し、茶色・暗色だけに偏るのを防ぐ。
+  const hueBins=Array.from({length:12},()=>[]);
+  for(const o of candidates){
+    const bin=Math.floor(((o.info.h%360)+360)%360/30)%12;
+    hueBins[bin].push(o);
   }
-  // 足りなければ間引き基準を緩めて補充
-  if(result.length<count){
-    for(const o of scored){
-      if(result.length>=count) break;
-      if(result.includes(o)) continue;
-      result.push(o);
-    }
-  }
-  return result.map(o=>toHex(o.c[0],o.c[1],o.c[2]));
+  hueBins.forEach(bin=>bin.sort((a,b)=>b.score-a.score));
+  const chosen=[];
+  const add=(o)=>{
+    if(!o||chosen.includes(o))return;
+    const duplicate=chosen.some(x=>hueDiff(x.info.h,o.info.h)<10&&Math.abs(x.info.light-o.info.light)<18&&Math.abs(x.info.s-o.info.s)<.14);
+    if(!duplicate)chosen.push(o);
+  };
+  // vivid/pastel を色相順に確保
+  for(const bin of hueBins) add(bin.find(o=>o.info.s>.28&&o.info.br>55));
+  // 明るい色を最低限残す
+  candidates.filter(o=>o.info.br>185).sort((a,b)=>b.score-a.score).slice(0,6).forEach(add);
+  // 面積がある代表色も残す
+  candidates.slice().sort((a,b)=>b.area-a.area).slice(0,8).forEach(add);
+  // 残りを総合点で補充
+  candidates.slice().sort((a,b)=>b.score-a.score).forEach(add);
+  return chosen.slice(0,count).map(o=>o.hex);
 }
 
-// 既存のhex配列（パレット）から多様性のある3色を選ぶ。startで開始位置をずらすと違う3色になる
+// パレットから「アクセント・明るい色・代表色」の役割で3色を選ぶ。
 function pickDiverse3(hexes, start=0) {
   if (!hexes.length) return [];
-  const items = hexes.map(hex => ({
-    hex,
-    rgb: [parseInt(hex.slice(1,3),16), parseInt(hex.slice(3,5),16), parseInt(hex.slice(5,7),16)]
-  }));
-  const first = items[((start%items.length)+items.length)%items.length];
-  const selected=[first];
-  for (const it of items) {
-    if (selected.length>=3) break;
-    if (selected.includes(it)) continue;
-    const minD = Math.min(...selected.map(s=>toneDistance(s.rgb,it.rgb)));
-    if (minD>28) selected.push(it);
-  }
-  for (const it of items) {
-    if (selected.length>=3) break;
-    if (!selected.includes(it)) selected.push(it);
-  }
-  return selected.map(it=>it.hex);
+  const items=hexes.map((hex,index)=>({
+    hex,index,
+    rgb:[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)]
+  })).map(o=>({...o,info:rgbInfo(o.rgb)}));
+  const rotate=(arr,n)=>arr.slice(n%arr.length).concat(arr.slice(0,n%arr.length));
+  const pool=rotate(items,Math.max(0,start));
+  const selected=[];
+  const add=o=>{if(o&&!selected.some(x=>x.hex===o.hex))selected.push(o);};
+
+  // 1: 写真内の鮮やかなアクセント
+  add(pool.slice().sort((a,b)=>(b.info.s*1.8+Math.min(b.info.br,210)/500)-(a.info.s*1.8+Math.min(a.info.br,210)/500))[0]);
+  // 2: 暗すぎない明るい色・パステル
+  add(pool.filter(o=>o.info.br>165).sort((a,b)=>{
+    const da=selected.length?hueDiff(a.info.h,selected[0].info.h):0;
+    const db=selected.length?hueDiff(b.info.h,selected[0].info.h):0;
+    return (db+b.info.s*55)-(da+a.info.s*55);
+  })[0]);
+  // 3: 既存2色と十分違う代表色
+  const remaining=pool.filter(o=>!selected.some(x=>x.hex===o.hex));
+  add(remaining.sort((a,b)=>{
+    const ad=Math.min(...selected.map(s=>toneDistance(a.rgb,s.rgb)));
+    const bd=Math.min(...selected.map(s=>toneDistance(b.rgb,s.rgb)));
+    return bd-ad;
+  })[0]);
+  for(const o of pool){if(selected.length>=3)break;add(o);}
+  return selected.slice(0,3).map(o=>o.hex);
 }
 
 function colorName(hex, usedNames=null) {
@@ -747,6 +765,8 @@ function PaletteStory() {
   const hiddenRef  = useRef(null);
   const fileRef    = useRef(null);
   const cropCvRef  = useRef(null);
+  const editorScrollRef = useRef(null);
+  const focusedFieldRef = useRef(null);
   const dragRef    = useRef({active:false,mode:'new',handle:null,startX:0,startY:0,c0:null});
 
   // ── state ──
@@ -816,6 +836,48 @@ function PaletteStory() {
   const [bodyColor, setBodyColor] =useState('rgba(61,68,88,0.72)');
   const [bodyBold,  setBodyBold]  =useState(false);
   const [titleBold, setTitleBold] =useState(false);
+  const [keyboardOpen,setKeyboardOpen]=useState(false);
+
+  // iPhone Safari: visualViewport を基準にアプリ全体の高さを更新し、
+  // キーボード表示時も編集シートが画面外へ押し出されないようにする。
+  useEffect(()=>{
+    const vv=window.visualViewport;
+    const updateViewport=()=>{
+      const height=vv?vv.height:window.innerHeight;
+      const top=vv?vv.offsetTop:0;
+      document.documentElement.style.setProperty('--app-height',`${Math.round(height)}px`);
+      document.documentElement.style.setProperty('--app-top',`${Math.round(top)}px`);
+      const open=window.innerHeight-height>120;
+      setKeyboardOpen(open);
+      if(open && focusedFieldRef.current){
+        requestAnimationFrame(()=>{
+          setTimeout(()=>{
+            focusedFieldRef.current?.scrollIntoView({block:'center',behavior:'smooth'});
+          },80);
+        });
+      }
+    };
+    updateViewport();
+    vv?.addEventListener('resize',updateViewport);
+    vv?.addEventListener('scroll',updateViewport);
+    window.addEventListener('orientationchange',updateViewport);
+    const onFocusIn=(e)=>{
+      if(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)){
+        focusedFieldRef.current=e.target;
+        setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),180);
+      }
+    };
+    const onFocusOut=()=>{focusedFieldRef.current=null;};
+    document.addEventListener('focusin',onFocusIn);
+    document.addEventListener('focusout',onFocusOut);
+    return()=>{
+      vv?.removeEventListener('resize',updateViewport);
+      vv?.removeEventListener('scroll',updateViewport);
+      window.removeEventListener('orientationchange',updateViewport);
+      document.removeEventListener('focusin',onFocusIn);
+      document.removeEventListener('focusout',onFocusOut);
+    };
+  },[]);
 
   const getPixelsFromImage = (image) => {
     try {
@@ -1232,11 +1294,16 @@ function PaletteStory() {
       textItemRefs.current[selectedTextId].scrollIntoView({behavior:'smooth',block:'nearest'});
     }
   },[selectedTextId]);
-  // フォント変更時に遅延再描画（Caveat等の読み込み待ち）
+  // Webフォントを確実に読み込んでからCanvasを再描画する。
   useEffect(()=>{
-    const t=setTimeout(()=>render(),200);
-    return ()=>clearTimeout(t);
-  },[titleFont,bodyFont]);
+    let cancelled=false;
+    const families=[titleFont,bodyFont,...freeTexts.map(t=>t.font)].filter(Boolean);
+    Promise.all(families.map(f=>document.fonts?.load(`400 32px ${f}`).catch(()=>null)))
+      .then(()=>document.fonts?.ready)
+      .then(()=>{if(!cancelled)render();});
+    const t=setTimeout(()=>{if(!cancelled)render();},500);
+    return ()=>{cancelled=true;clearTimeout(t);};
+  },[titleFont,bodyFont,freeTexts,render]);
 
   // ── crop canvas draw ──
   const drawCropCanvas=useCallback(()=>{
@@ -1407,7 +1474,7 @@ function PaletteStory() {
 
   // ── ギャラリー画面 ──
   if (showGallery) return (
-    <div style={{background:'linear-gradient(180deg,#FBF8FF 0%,#F4EEF9 52%,#FDFBFF 100%)',fontFamily:"'DM Sans','Plus Jakarta Sans',sans-serif",height:'100dvh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+    <div style={{background:'linear-gradient(180deg,#FBF8FF 0%,#F4EEF9 52%,#FDFBFF 100%)',fontFamily:"'DM Sans','Plus Jakarta Sans',sans-serif",height:'var(--app-height,100dvh)',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden'}}>
       <div style={{padding:'16px 20px 12px',background:'#fff',borderBottom:'1px solid #E7DDEA',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
         <div>
           <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:700,fontSize:'1.1rem',color:'#3D4458'}}>palette story.</span>
@@ -1472,7 +1539,7 @@ function PaletteStory() {
   return(
     <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:'100dvh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&family=Dancing+Script&family=Sriracha&family=Sacramento&family=Homemade+Apple&family=Pacifico&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Murecho&family=M+PLUS+1p&family=Yomogi&family=Kiwi+Maru&family=Darumadrop+One&family=Kosugi+Maru&family=Kosugi&family=M+PLUS+Rounded+1c&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&family=Dancing+Script&family=Sriracha&family=Sacramento&family=Homemade+Apple&family=Pacifico&family=Covered+By+Your+Grace&family=RocknRoll+One&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Murecho&family=M+PLUS+1p&family=Yomogi&family=Kiwi+Maru&family=Darumadrop+One&family=Kosugi+Maru&family=Kosugi&family=M+PLUS+Rounded+1c&display=swap');
         *{box-sizing:border-box;}
         select,textarea{padding:9px 11px;border:1.5px solid #E7DDEA;border-radius:4px;font-size:16px;font-family:inherit;color:#3D4458;background:#FFFFFF;outline:none;width:100%;resize:none;}
         input:not([type=range]):not([type=color]):not([type=file]){font-size:16px;}
@@ -1488,7 +1555,7 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
-      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v2</div>
+      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v4</div>
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:1,minHeight:0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)'}}
@@ -1681,13 +1748,15 @@ function PaletteStory() {
 
         {/* シートパネル：タブバーの上に通常のflowで積む */}
         {tab&&(
-          <div style={{
+          <div ref={editorScrollRef} style={{
             background:'#FFFFFF',borderTop:'1px solid #E7DDEA',
             borderBottom:'1px solid #E7DDEA',
             overflowY:'auto',
-            maxHeight:'26dvh',
+            maxHeight:keyboardOpen?'48vh':'26dvh',
+            minHeight:keyboardOpen?'150px':undefined,
             overscrollBehavior:'contain',
             WebkitOverflowScrolling:'touch',
+            scrollPaddingBottom:keyboardOpen?'120px':'18px',
             padding:'7px 18px 10px',
             zIndex:10,
           }}>
