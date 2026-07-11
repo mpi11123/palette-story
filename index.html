@@ -955,6 +955,12 @@ function PaletteStory() {
   };
   const doExtract=()=>{
     if(!pixels.length)return;
+    // 今の3色を履歴に残してから、再抽出する
+    if(colors.length===3) setColorHistory(prev=>{
+      const oldEntry={key:colors.join(','),colors:[...colors],bg:bgColor};
+      const filtered=prev.filter(h=>h.key!==oldEntry.key);
+      return [oldEntry,...filtered].slice(0,12);
+    });
     const many=pickMany(pixels,21);
     setPalette(many);
     // 自動で最初の3色を選択（おまかせ）— 必ずPALETTE内の色と一致させる
@@ -968,6 +974,12 @@ function PaletteStory() {
     if(!pixels.length)return;
     const nextStrategy=strategy+1;
     setStrategy(nextStrategy);
+    // 今の3色を履歴に残してから、次のおまかせ3色に切り替える
+    if(colors.length===3) setColorHistory(prev=>{
+      const oldEntry={key:colors.join(','),colors:[...colors],bg:bgColor};
+      const filtered=prev.filter(h=>h.key!==oldEntry.key);
+      return [oldEntry,...filtered].slice(0,12);
+    });
     // パレットがあればパレット内から選び直す（一致を保つ）。なければ従来通り
     const auto=palette.length?pickDiverse3(palette,nextStrategy):pick3(pixels,nextStrategy);
     setColors(auto);
@@ -1221,6 +1233,7 @@ function PaletteStory() {
     if(!window.visualViewport){
       const onResize=()=>setVh(window.innerHeight);
       window.addEventListener('resize',onResize);
+      onResize();
       return ()=>window.removeEventListener('resize',onResize);
     }
     const vv=window.visualViewport;
@@ -1490,6 +1503,8 @@ function PaletteStory() {
       `}</style>
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
+
+      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v1</div>
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:1,minHeight:0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)'}}
