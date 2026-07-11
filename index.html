@@ -9,7 +9,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 button{-webkit-appearance:none;appearance:none;font:inherit;}
-html,body{height:100dvh;overflow:hidden;background:#F7F3FA;}
+html,body{height:100dvh;overflow:hidden;background:#F7F3FA;overscroll-behavior:none;position:fixed;width:100%;}
 #root{height:100dvh;}
 input[type=range]{touch-action:pan-x;}
 </style>
@@ -1227,22 +1227,6 @@ function PaletteStory() {
 
   useEffect(()=>{render();},[render]);
 
-  // ── 実際に見えているビューポート高さを追従（キーボード表示中に下に空白が残らないように） ──
-  const [vh,setVh]=useState(typeof window!=='undefined'?window.innerHeight:800);
-  useEffect(()=>{
-    if(!window.visualViewport){
-      const onResize=()=>setVh(window.innerHeight);
-      window.addEventListener('resize',onResize);
-      onResize();
-      return ()=>window.removeEventListener('resize',onResize);
-    }
-    const vv=window.visualViewport;
-    const onResize=()=>setVh(vv.height);
-    vv.addEventListener('resize',onResize);
-    onResize();
-    return ()=>vv.removeEventListener('resize',onResize);
-  },[]);
-
   useEffect(()=>{
     if(selectedTextId && textItemRefs.current[selectedTextId]){
       textItemRefs.current[selectedTextId].scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -1486,7 +1470,7 @@ function PaletteStory() {
   );
 
   return(
-    <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:vh+'px',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
+    <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:'100dvh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&family=Dancing+Script&family=Sriracha&family=Sacramento&family=Homemade+Apple&family=Pacifico&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Murecho&family=M+PLUS+1p&family=Yomogi&family=Kiwi+Maru&family=Darumadrop+One&family=Kosugi+Maru&family=Kosugi&family=M+PLUS+Rounded+1c&display=swap');
         *{box-sizing:border-box;}
@@ -1504,7 +1488,7 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
-      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v1</div>
+      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v2</div>
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:1,minHeight:0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)'}}
@@ -1702,6 +1686,7 @@ function PaletteStory() {
             borderBottom:'1px solid #E7DDEA',
             overflowY:'auto',
             maxHeight:'26dvh',
+            overscrollBehavior:'contain',
             WebkitOverflowScrolling:'touch',
             padding:'7px 18px 10px',
             zIndex:10,
