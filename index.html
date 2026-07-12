@@ -1158,22 +1158,22 @@ function PaletteStory() {
   };
   const getDifferentAutoColors=(startStrategy, currentColors, blockedHistory=[])=>{
     const blocked=new Set([normalizeColorKey(currentColors),...blockedHistory.map(h=>normalizeColorKey(h.colors))].filter(Boolean));
-    // まず写真ピクセルから最大24通りまで試し、現在と同じ3色セットは必ず飛ばす
+    // PALETTEに表示されている色と必ず一致させるため、まずパレット配列から選ぶ
+    const many=palette.length?palette:pickMany(pixels,21);
+    for(let offset=0;offset<Math.max(2,many.length);offset++){
+      const candidate=pickDiverse3(many,startStrategy+offset);
+      const key=normalizeColorKey(candidate);
+      if(candidate.length===3 && !blocked.has(key)) return {colors:candidate,strategy:startStrategy+offset};
+    }
+    // パレットだけでは同じセットしか作れない場合のみ、写真ピクセルから直接探す
     for(let offset=0;offset<24;offset++){
       const s=startStrategy+offset;
       const candidate=pickAuto3FromPixels(pixels,s);
       const key=normalizeColorKey(candidate);
       if(candidate.length===3 && !blocked.has(key)) return {colors:candidate,strategy:s};
     }
-    // それでも同じなら、21色パレットから開始位置をずらして確実に別セットを作る
-    const many=palette.length?palette:pickMany(pixels,21);
-    for(let offset=1;offset<Math.max(2,many.length);offset++){
-      const candidate=pickDiverse3(many,startStrategy+offset);
-      const key=normalizeColorKey(candidate);
-      if(candidate.length===3 && !blocked.has(key)) return {colors:candidate,strategy:startStrategy+offset};
-    }
-    // 写真内に実質3色しかない場合だけ同じセットを許す
-    return {colors:pickAuto3FromPixels(pixels,startStrategy),strategy:startStrategy};
+    // それでも見つからなければ同じセットを許す
+    return {colors:pickDiverse3(many,startStrategy),strategy:startStrategy};
   };
 
   const doExtract=()=>{
@@ -1186,7 +1186,8 @@ function PaletteStory() {
     const many=pickMany(pixels,21);
     setPalette(many);
     setStrategy(0);
-    const auto=pickAuto3FromPixels(pixels,0);
+    // 自動選択もPALETTE内の色と必ず一致させる
+    const auto=pickDiverse3(many,0);
     applyAutoColors(auto);
   };
   const doAuto=()=>{
@@ -1706,7 +1707,7 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
-      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v6</div>
+      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v7</div>
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)',transition:'flex-basis .18s ease'}}
