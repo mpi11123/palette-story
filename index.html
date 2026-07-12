@@ -494,6 +494,93 @@ function pickDiverse3(hexes, start=0) {
   return selected.slice(0,3).map(o=>o.hex);
 }
 
+
+// 写真のピクセルから「主役色・明るい色・支え色」を直接選ぶ。
+// パレット配列の並び順に依存しないため、おまかせを押すたびに候補がきちんと変わる。
+function pickAuto3FromPixels(px, strategy=0) {
+  if (!px.length) return [];
+  const sample=px.filter((_,i)=>i%2===0);
+  const centers=kmeans(sample,56,strategy*19+7);
+  const clusters=centers.map(c=>({c,n:0}));
+  for(const p of sample){
+    let bi=0,bd=Infinity;
+    for(let i=0;i<centers.length;i++){
+      const d=dist(p,centers[i]);
+      if(d<bd){bd=d;bi=i;}
+    }
+    clusters[bi].n++;
+  }
+  const total=Math.max(1,sample.length);
+  const candidates=clusters.map(({c,n})=>{
+    const info=rgbInfo(c), area=n/total;
+    const neutral=info.s<.11;
+    const dark=info.br<42;
+    const nearWhite=info.br>246&&info.s<.10;
+    const brown=(info.h<55||info.h>345)&&info.s<.48&&info.br<175;
+    return {c,info,area,neutral,dark,nearWhite,brown,hex:toHex(...c)};
+  }).filter(o=>o.area>.00035&&!o.nearWhite&&o.info.br>20&&o.info.br<248);
+
+  if(!candidates.length) return pick3(px,strategy);
+  const mode=((strategy%4)+4)%4; // balanced / vivid / light / dominant
+  const variant=Math.floor(strategy/4)%4;
+  const selected=[];
+  const isClose=(a,b)=>hueDiff(a.info.h,b.info.h)<22&&Math.abs(a.info.light-b.info.light)<34;
+  const addRanked=(pool,scoreFn,rankOffset=0,minHue=0)=>{
+    const ranked=pool.filter(o=>!selected.some(s=>s.hex===o.hex))
+      .filter(o=>!selected.some(s=>isClose(s,o)))
+      .filter(o=>!selected.length||selected.every(s=>hueDiff(s.info.h,o.info.h)>=minHue))
+      .sort((a,b)=>scoreFn(b)-scoreFn(a));
+    if(!ranked.length) return false;
+    const idx=Math.min((variant+rankOffset)%Math.min(4,ranked.length),ranked.length-1);
+    selected.push(ranked[idx]);
+    return true;
+  };
+
+  const chromatic=candidates.filter(o=>o.info.s>.22&&!o.dark);
+  const vivid=candidates.filter(o=>o.info.s>.42&&o.info.br>58&&o.info.br<240);
+  const light=candidates.filter(o=>o.info.br>170&&o.info.s>.13&&!o.nearWhite);
+  const usable=candidates.filter(o=>!o.dark&&o.info.br<242);
+
+  // 1色目：モード別の主役色
+  if(mode===1){
+    addRanked(vivid,o=>o.info.s*4.8+Math.sqrt(o.area)*.7+o.info.br*.003,0,0);
+  }else if(mode===2){
+    addRanked(light,o=>o.info.br*.018+o.info.s*2.4+Math.sqrt(o.area)*.5,0,0);
+  }else if(mode===3){
+    addRanked(usable,o=>Math.sqrt(o.area)*4+o.info.s*1.25-(o.neutral?1.2:0)-(o.brown?.25:0),0,0);
+  }else{
+    addRanked(chromatic,o=>o.info.s*3.25+Math.sqrt(o.area)*1.25+(o.info.br>105?0.55:0)-(o.brown?.35:0),0,0);
+  }
+
+  // 2色目：一色目とはっきり違う、明るい色またはアクセント色
+  const contrastPool=[...light,...vivid,...chromatic];
+  addRanked(contrastPool,o=>{
+    const first=selected[0];
+    const hd=first?hueDiff(first.info.h,o.info.h):0;
+    return hd*0.035+o.info.s*2.6+o.info.br*.007+Math.sqrt(o.area)*.45;
+  },1,38);
+
+  // 3色目：写真の面積も考慮した支え色。暗色・無彩色だけになるのは避ける
+  addRanked(usable,o=>{
+    const separation=selected.length?Math.min(...selected.map(s=>toneDistance(s.c,o.c))):0;
+    return separation*.025+Math.sqrt(o.area)*2.1+o.info.s*1.35+(o.info.br>115?0.45:0)-(o.dark?2:0)-(o.neutral?.6:0);
+  },2,18);
+
+  // 条件が厳しくて足りない場合のみ緩めて補う
+  for(const pool of [vivid,light,chromatic,usable,candidates]){
+    for(const o of pool){
+      if(selected.length>=3) break;
+      if(!selected.some(s=>s.hex===o.hex)&&!selected.some(s=>isClose(s,o))) selected.push(o);
+    }
+    if(selected.length>=3) break;
+  }
+  for(const o of candidates){
+    if(selected.length>=3) break;
+    if(!selected.some(s=>s.hex===o.hex)) selected.push(o);
+  }
+  return selected.slice(0,3).map(o=>o.hex);
+}
+
 function colorName(hex, usedNames=null) {
   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
   const br=getBr([r,g,b]), sat=getSat([r,g,b]);
@@ -881,6 +968,7 @@ function PaletteStory() {
   const [bodyBold,  setBodyBold]  =useState(false);
   const [titleBold, setTitleBold] =useState(false);
   const [keyboardOpen,setKeyboardOpen]=useState(false);
+  const [activeInputLabel,setActiveInputLabel]=useState('入力中');
 
   // iPhone Safari: visualViewport を基準にアプリ全体の高さを更新し、
   // キーボード表示時も編集シートが画面外へ押し出されないようにする。
@@ -908,10 +996,12 @@ function PaletteStory() {
     const onFocusIn=(e)=>{
       if(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)){
         focusedFieldRef.current=e.target;
+        const ph=e.target.getAttribute('placeholder')||'';
+        setActiveInputLabel(ph || (tab==='body'?'本文を入力中':tab==='title'?'タイトルを入力中':'テキストを入力中'));
         setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),180);
       }
     };
-    const onFocusOut=()=>{focusedFieldRef.current=null;};
+    const onFocusOut=()=>{setTimeout(()=>{focusedFieldRef.current=null;},80);};
     document.addEventListener('focusin',onFocusIn);
     document.addEventListener('focusout',onFocusOut);
     return()=>{
@@ -1059,9 +1149,35 @@ function PaletteStory() {
     });
     setColors(c3); setBgSugs(bgs); setSelBg(bgs[0]); setBgColor(bgs[0]);
   };
+  const normalizeColorKey=(arr)=>[...(arr||[])].map(String).sort().join(',');
+  const applyAutoColors=(auto)=>{
+    setColors(auto);
+    setColorSlots(auto);
+    const bgs=auto.map(hex=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return soften(r,g,b);});
+    setBgSugs(bgs); setSelBg(bgs[0]); setBgColor(bgs[0]);
+  };
+  const getDifferentAutoColors=(startStrategy, currentColors, blockedHistory=[])=>{
+    const blocked=new Set([normalizeColorKey(currentColors),...blockedHistory.map(h=>normalizeColorKey(h.colors))].filter(Boolean));
+    // まず写真ピクセルから最大24通りまで試し、現在と同じ3色セットは必ず飛ばす
+    for(let offset=0;offset<24;offset++){
+      const s=startStrategy+offset;
+      const candidate=pickAuto3FromPixels(pixels,s);
+      const key=normalizeColorKey(candidate);
+      if(candidate.length===3 && !blocked.has(key)) return {colors:candidate,strategy:s};
+    }
+    // それでも同じなら、21色パレットから開始位置をずらして確実に別セットを作る
+    const many=palette.length?palette:pickMany(pixels,21);
+    for(let offset=1;offset<Math.max(2,many.length);offset++){
+      const candidate=pickDiverse3(many,startStrategy+offset);
+      const key=normalizeColorKey(candidate);
+      if(candidate.length===3 && !blocked.has(key)) return {colors:candidate,strategy:startStrategy+offset};
+    }
+    // 写真内に実質3色しかない場合だけ同じセットを許す
+    return {colors:pickAuto3FromPixels(pixels,startStrategy),strategy:startStrategy};
+  };
+
   const doExtract=()=>{
     if(!pixels.length)return;
-    // 今の3色を履歴に残してから、再抽出する
     if(colors.length===3) setColorHistory(prev=>{
       const oldEntry={key:colors.join(','),colors:[...colors],bg:bgColor};
       const filtered=prev.filter(h=>h.key!==oldEntry.key);
@@ -1069,29 +1185,20 @@ function PaletteStory() {
     });
     const many=pickMany(pixels,21);
     setPalette(many);
-    // 自動で最初の3色を選択（おまかせ）— 必ずPALETTE内の色と一致させる
-    const auto=pickDiverse3(many,0);
-    setColors(auto);
-    setColorSlots(auto);
-    const bgs=auto.map(hex=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return soften(r,g,b);});
-    setBgSugs(bgs); setSelBg(bgs[0]); setBgColor(bgs[0]);
+    setStrategy(0);
+    const auto=pickAuto3FromPixels(pixels,0);
+    applyAutoColors(auto);
   };
   const doAuto=()=>{
     if(!pixels.length)return;
-    const nextStrategy=strategy+1;
-    setStrategy(nextStrategy);
-    // 今の3色を履歴に残してから、次のおまかせ3色に切り替える
     if(colors.length===3) setColorHistory(prev=>{
       const oldEntry={key:colors.join(','),colors:[...colors],bg:bgColor};
       const filtered=prev.filter(h=>h.key!==oldEntry.key);
       return [oldEntry,...filtered].slice(0,12);
     });
-    // パレットがあればパレット内から選び直す（一致を保つ）。なければ従来通り
-    const auto=palette.length?pickDiverse3(palette,nextStrategy):pick3(pixels,nextStrategy);
-    setColors(auto);
-    setColorSlots(auto);
-    const bgs=auto.map(hex=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return soften(r,g,b);});
-    setBgSugs(bgs); setSelBg(bgs[0]); setBgColor(bgs[0]);
+    const result=getDifferentAutoColors(strategy+1,colors,colorHistory);
+    setStrategy(result.strategy);
+    applyAutoColors(result.colors);
   };
   // パレットから色を選択/解除。1/2/3の枠は固定位置で管理し、1つ外しても他の番号は詰めない（穴埋め方式）
   const toggleColor=(hex)=>{
@@ -1581,7 +1688,7 @@ function PaletteStory() {
   );
 
   return(
-    <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:'100dvh',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
+    <div style={{background:'#F7F3FA',fontFamily:"'DM Sans',sans-serif",height:'var(--app-height, 100dvh)',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&family=Dancing+Script&family=Sriracha&family=Sacramento&family=Homemade+Apple&family=Pacifico&family=Covered+By+Your+Grace&family=RocknRoll+One&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Murecho&family=M+PLUS+1p&family=Yomogi&family=Kiwi+Maru&family=Darumadrop+One&family=Kosugi+Maru&family=Kosugi&family=M+PLUS+Rounded+1c&display=swap');
         *{box-sizing:border-box;}
@@ -1599,10 +1706,10 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
-      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v4</div>
+      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v6</div>
 
       {/* ── 全画面プレビュー ── */}
-      <div style={{flex:1,minHeight:0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)'}}
+      <div style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)',transition:'flex-basis .18s ease'}}
         onClick={()=>{}}>
 
         <canvas ref={previewRef} width={CW*RENDER_SCALE} height={CH*RENDER_SCALE}
@@ -1755,7 +1862,7 @@ function PaletteStory() {
 
 
         {/* ロゴ＋アクション（上部オーバーレイ） */}
-        <div style={{position:'absolute',top:0,left:0,right:0,padding:'10px 14px',background:'linear-gradient(to bottom,rgba(247,243,250,.96),rgba(247,243,250,.38),transparent)',display:'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,padding:'10px 14px',background:'linear-gradient(to bottom,rgba(247,243,250,.96),rgba(247,243,250,.38),transparent)',display:keyboardOpen?'none':'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
           <span style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'1rem',color:'#3D4458',letterSpacing:'.01em',opacity:.95}}>
             palette story.
           </span>
@@ -1796,15 +1903,19 @@ function PaletteStory() {
             background:'#FFFFFF',borderTop:'1px solid #E7DDEA',
             borderBottom:'1px solid #E7DDEA',
             overflowY:'auto',
-            maxHeight:keyboardOpen?'48vh':'26dvh',
-            minHeight:keyboardOpen?'150px':undefined,
+            maxHeight:keyboardOpen?'58%':'26dvh',
+            minHeight:keyboardOpen?'170px':undefined,
             overscrollBehavior:'contain',
             WebkitOverflowScrolling:'touch',
             scrollPaddingBottom:keyboardOpen?'120px':'18px',
-            padding:'7px 18px 10px',
+            padding:keyboardOpen?'6px 14px 10px':'7px 18px 10px',
             zIndex:10,
           }}>
-            <div style={{width:32,height:3,background:'#D9C7E3',borderRadius:2,margin:'0 auto 12px'}}/>
+            {keyboardOpen&&(<div style={{position:'sticky',top:-6,zIndex:12,display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,background:'rgba(255,255,255,.97)',borderBottom:'1px solid #EEE6F2',padding:'7px 2px 8px',marginBottom:8}}>
+              <span style={{fontSize:'.68rem',fontWeight:700,color:'#667A8C',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{activeInputLabel}</span>
+              <button type="button" onClick={()=>{document.activeElement?.blur();}} style={{flexShrink:0,padding:'7px 14px',border:'none',borderRadius:3,background:'#C8A8C8',color:'#fff',fontFamily:'inherit',fontSize:'.72rem',fontWeight:800,cursor:'pointer'}}>完了</button>
+            </div>)}
+            {!keyboardOpen&&<div style={{width:32,height:3,background:'#D9C7E3',borderRadius:2,margin:'0 auto 12px'}}/>}
             {tab==='photo'&&(
               <div>
                 {!img?(
@@ -2112,7 +2223,7 @@ function PaletteStory() {
         )}
 
         {/* タブ一覧（常に表示） */}
-        <div style={{display:'grid',gridTemplateColumns:'repeat(6,1fr)',gap:0,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
+        <div style={{display:keyboardOpen?'none':'grid',gridTemplateColumns:'repeat(6,1fr)',gap:0,paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
           {TABS.map(({id,label,icon,done})=>(
             <button key={id} onClick={()=>setTab(tab===id?null:id)}
               style={{padding:'7px 0 6px',border:'none',background:tab===id?'#F2E9F6':'#fff',cursor:'pointer',fontFamily:'inherit',display:'flex',flexDirection:'column',alignItems:'center',gap:3,borderTop:`2px solid ${tab===id?'#C8A8C8':'transparent'}`,color:tab===id?'#3D4458':'#8A90A0'}}>
