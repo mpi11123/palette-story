@@ -370,7 +370,7 @@ function pick3(px, strategy=0) {
 }
 
 // パレット用に多色を抽出（21色）
-function pickMany(px, count=21) {
+function pickMany(px, count=30) {
   if (!px.length) return [];
 
   // 実際に Color タブで使われるパレット抽出。
@@ -394,6 +394,7 @@ function pickMany(px, count=21) {
     const isDark=info.br<55;
     const isNearNeutral=info.s<.12;
     const isBrown=(info.h<55 || info.h>345) && info.s<.58 && info.br<175;
+    const isPinkPurple=info.h>=255 && info.h<=350 && info.s>.10;
     const vivid=info.s>.48 && info.br>65 && info.br<238;
     const pastel=info.br>172 && info.br<242 && info.s>.16;
     const lightColor=info.br>185 && info.s>.14;
@@ -403,6 +404,7 @@ function pickMany(px, count=21) {
     if(vivid) score += 2.2;
     if(pastel) score += 1.15;
     if(lightColor) score += .65;
+    if(isPinkPurple) score += 1.3; // パープル・ピンク系は写真内にわずかでもあれば拾いやすくする
     if(isDark) score -= 2.0;
     if(isNearNeutral) score -= 1.25;
     if(isBrown) score -= .75;
@@ -1171,7 +1173,7 @@ function PaletteStory() {
   const getDifferentAutoColors=(startStrategy, currentColors, blockedHistory=[])=>{
     const blocked=new Set([normalizeColorKey(currentColors),...blockedHistory.map(h=>normalizeColorKey(h.colors))].filter(Boolean));
     // PALETTEに表示されている色と必ず一致させるため、まずパレット配列から選ぶ
-    const many=palette.length?palette:pickMany(pixels,21);
+    const many=palette.length?palette:pickMany(pixels,30);
     for(let offset=0;offset<Math.max(2,many.length);offset++){
       const candidate=pickDiverse3(many,startStrategy+offset);
       const key=normalizeColorKey(candidate);
@@ -1195,7 +1197,7 @@ function PaletteStory() {
       const filtered=prev.filter(h=>h.key!==oldEntry.key);
       return [oldEntry,...filtered].slice(0,12);
     });
-    const many=pickMany(pixels,21);
+    const many=pickMany(pixels,30);
     setPalette(many);
     setStrategy(0);
     // 自動選択もPALETTE内の色と必ず一致させる
@@ -2008,14 +2010,14 @@ function PaletteStory() {
                             <button onClick={clearColors} style={{WebkitAppearance:'none',appearance:'none',background:'none',border:'none',padding:0,fontSize:'.56rem',letterSpacing:'.04em',color:'#B685C1',fontWeight:700,cursor:'pointer'}}>クリア</button>
                           )}
                         </div>
-                        <div style={{display:'grid',gridTemplateColumns:'repeat(9,1fr)',gap:4}}>
+                        <div style={{display:'grid',gridTemplateColumns:'repeat(10,1fr)',gap:3}}>
                           {palette.map((hex,i)=>{
                             const sel=colorSlots.includes(hex);
                             const selIdx=colorSlots.indexOf(hex);
                             return(
                               <button key={hex+i} onClick={()=>toggleColor(hex)}
-                                style={{WebkitAppearance:'none',appearance:'none',aspectRatio:'1',backgroundColor:hex,border:sel?'2px solid #3D4458':'1px solid rgba(0,0,0,.08)',borderRadius:6,cursor:'pointer',position:'relative',padding:0,fontSize:'5px',color:'#000',overflow:'hidden'}}>
-                                {sel&&<span style={{position:'absolute',top:-3,right:-3,width:13,height:13,borderRadius:'50%',background:'#3D4458',color:'#fff',fontSize:'.42rem',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,zIndex:2}}>{selIdx+1}</span>}
+                                style={{WebkitAppearance:'none',appearance:'none',aspectRatio:'1',backgroundColor:hex,border:sel?'2px solid #3D4458':'1px solid rgba(0,0,0,.08)',borderRadius:5,cursor:'pointer',position:'relative',padding:0,fontSize:'5px',color:'#000',overflow:'hidden'}}>
+                                {sel&&<span style={{position:'absolute',top:-3,right:-3,width:12,height:12,borderRadius:'50%',background:'#3D4458',color:'#fff',fontSize:'.4rem',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:700,zIndex:2}}>{selIdx+1}</span>}
                               </button>
                             );
                           })}
@@ -2335,7 +2337,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'12px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
               OK
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#C8BDD4',marginTop:10}}>v13</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#C8BDD4',marginTop:10}}>v15</div>
           </div>
         </div>
       )}
