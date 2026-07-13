@@ -861,7 +861,7 @@ function wrapText(ctx, text, maxW) {
 // ─────────────────────────────────────────────
 // CANVAS CONSTANTS
 // ─────────────────────────────────────────────
-const OUT_W=1080, OUT_H=1920;
+const OUT_W=1620, OUT_H=2880; // プレビューの実解像度(RENDER_SCALE)にそのまま合わせて画質劣化なしで保存
 const CW=405, CH=720;
 const SCALE=OUT_W/CW;
 const RENDER_SCALE=4;
@@ -956,6 +956,14 @@ function PaletteStory() {
   const [freeTexts,setFreeTexts]=useState([]); // 自由配置テキスト: {id,text,font,size,color,bold,x,y,rotation}
   const [selectedTextId,setSelectedTextId]=useState(null);
   const freeTextGestureRef=useRef({mode:null,id:null,startX:0,startY:0,startTX:0,startTY:0,startAngle:0,startRotation:0});
+  // スライダーをダブルタップで0（既定値）に戻す共通ヘルパー
+  const lastTapRef=useRef({});
+  const dblTapReset=(key,resetFn)=>()=>{
+    const now=Date.now();
+    const last=lastTapRef.current[key]||0;
+    if(now-last<350){resetFn();lastTapRef.current[key]=0;}
+    else{lastTapRef.current[key]=now;}
+  };
   const textItemRefs=useRef({});
   const canvasDragRef=useRef({active:false,target:null,startX:0,startY:0,startOffsetY:0});
   const [cardScale,setCardScale]= useState(90);      // 40-120%
@@ -1710,7 +1718,7 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
-      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v10</div>
+      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v11</div>
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)',transition:'flex-basis .18s ease'}}
@@ -1748,6 +1756,7 @@ function PaletteStory() {
             freeTextGestureRef.current={mode:null,id:null};
             if(e.touches.length===2){
               vt.pinching=true;vt.dragging=false;
+              vt.rect=e.currentTarget.getBoundingClientRect();
               const dx=e.touches[0].clientX-e.touches[1].clientX;
               const dy=e.touches[0].clientY-e.touches[1].clientY;
               vt.lastDist=Math.sqrt(dx*dx+dy*dy);
@@ -1779,8 +1788,19 @@ function PaletteStory() {
               const dx=e.touches[0].clientX-e.touches[1].clientX;
               const dy=e.touches[0].clientY-e.touches[1].clientY;
               const dist=Math.sqrt(dx*dx+dy*dy);
-              vt.scale=Math.max(0.8,Math.min(4,vt.scale*(dist/vt.lastDist)));
-              vt.lastDist=dist;setViewScale(vt.scale);
+              const newScale=Math.max(0.8,Math.min(4,vt.scale*(dist/vt.lastDist)));
+              const rect=vt.rect||e.currentTarget.getBoundingClientRect();
+              const midX=(e.touches[0].clientX+e.touches[1].clientX)/2;
+              const midY=(e.touches[0].clientY+e.touches[1].clientY)/2;
+              const Mx=midX-(rect.left+rect.width/2);
+              const My=midY-(rect.top+rect.height/2);
+              const ratio=newScale/vt.scale;
+              vt.x=Mx-ratio*(Mx-vt.x);
+              vt.y=My-ratio*(My-vt.y);
+              vt.scale=newScale;
+              vt.lastDist=dist;
+              setViewScale(vt.scale);
+              setViewOffset({x:vt.x,y:vt.y});
             }else if(e.touches.length===1){
               const dx=e.touches[0].clientX-vt.lastX;
               const dy=e.touches[0].clientY-vt.lastY;
@@ -1947,11 +1967,11 @@ function PaletteStory() {
                     <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                       <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {photoOffsetX>0?`+${photoOffsetX}`:photoOffsetX}</span>
-                      <input type="range" min={-80} max={80} value={photoOffsetX} onInput={e=>setPhotoOffsetX(Number(e.target.value))} onChange={e=>setPhotoOffsetX(Number(e.target.value))} style={{flex:1}}/>
+                      <input type="range" min={-80} max={80} value={photoOffsetX} onInput={e=>setPhotoOffsetX(Number(e.target.value))} onChange={e=>setPhotoOffsetX(Number(e.target.value))} onTouchEnd={dblTapReset('photoOffsetX',()=>setPhotoOffsetX(0))} style={{flex:1}}/>
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {photoOffsetY>0?`+${photoOffsetY}`:photoOffsetY}</span>
-                      <input type="range" min={-80} max={80} value={photoOffsetY} onInput={e=>setPhotoOffsetY(Number(e.target.value))} onChange={e=>setPhotoOffsetY(Number(e.target.value))} style={{flex:1}}/>
+                      <input type="range" min={-80} max={80} value={photoOffsetY} onInput={e=>setPhotoOffsetY(Number(e.target.value))} onChange={e=>setPhotoOffsetY(Number(e.target.value))} onTouchEnd={dblTapReset('photoOffsetY',()=>setPhotoOffsetY(0))} style={{flex:1}}/>
                     </div>
                   </>
                 )}
@@ -2060,11 +2080,11 @@ function PaletteStory() {
                 <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {cardOffsetX>0?`+${cardOffsetX}`:cardOffsetX}</span>
-                  <input type="range" min={-80} max={80} value={cardOffsetX} onInput={e=>setCardOffsetX(Number(e.target.value))} onChange={e=>setCardOffsetX(Number(e.target.value))} style={{flex:1}}/>
+                  <input type="range" min={-80} max={80} value={cardOffsetX} onInput={e=>setCardOffsetX(Number(e.target.value))} onChange={e=>setCardOffsetX(Number(e.target.value))} onTouchEnd={dblTapReset('cardOffsetX',()=>setCardOffsetX(0))} style={{flex:1}}/>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {cardOffsetY>0?`+${cardOffsetY}`:cardOffsetY}</span>
-                  <input type="range" min={-80} max={80} value={cardOffsetY} onInput={e=>setCardOffsetY(Number(e.target.value))} onChange={e=>setCardOffsetY(Number(e.target.value))} style={{flex:1}}/>
+                  <input type="range" min={-80} max={80} value={cardOffsetY} onInput={e=>setCardOffsetY(Number(e.target.value))} onChange={e=>setCardOffsetY(Number(e.target.value))} onTouchEnd={dblTapReset('cardOffsetY',()=>setCardOffsetY(0))} style={{flex:1}}/>
                 </div>
                 {colors.length===0&&<div style={{padding:'9px',background:'rgba(255,255,255,.05)',borderRadius:4,color:'rgba(255,255,255,.3)',fontSize:'.74rem',textAlign:'center',marginTop:6}}>先に色を抽出してください</div>}
               </div>
@@ -2099,11 +2119,11 @@ function PaletteStory() {
             <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
               <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {titlePos.offsetX>0?`+${titlePos.offsetX}`:(titlePos.offsetX||0)}</span>
-              <input type="range" min={-80} max={80} value={titlePos.offsetX||0} onInput={e=>setTitlePos(p=>({...p,offsetX:Number(e.target.value)}))} onChange={e=>setTitlePos(p=>({...p,offsetX:Number(e.target.value)}))} style={{flex:1}}/>
+              <input type="range" min={-80} max={80} value={titlePos.offsetX||0} onInput={e=>setTitlePos(p=>({...p,offsetX:Number(e.target.value)}))} onChange={e=>setTitlePos(p=>({...p,offsetX:Number(e.target.value)}))} onTouchEnd={dblTapReset('titleOffsetX',()=>setTitlePos(p=>({...p,offsetX:0})))} style={{flex:1}}/>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:colors.length>0?10:0}}>
               <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {titlePos.offsetY>0?`+${titlePos.offsetY}`:(titlePos.offsetY||0)}</span>
-              <input type="range" min={-80} max={80} value={titlePos.offsetY||0} onInput={e=>setTitlePos(p=>({...p,offsetY:Number(e.target.value)}))} onChange={e=>setTitlePos(p=>({...p,offsetY:Number(e.target.value)}))} style={{flex:1}}/>
+              <input type="range" min={-80} max={80} value={titlePos.offsetY||0} onInput={e=>setTitlePos(p=>({...p,offsetY:Number(e.target.value)}))} onChange={e=>setTitlePos(p=>({...p,offsetY:Number(e.target.value)}))} onTouchEnd={dblTapReset('titleOffsetY',()=>setTitlePos(p=>({...p,offsetY:0})))} style={{flex:1}}/>
             </div>
             {colors.length>0&&(
               <>
@@ -2151,11 +2171,11 @@ function PaletteStory() {
                 <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {bodyPos.offsetX>0?`+${bodyPos.offsetX}`:(bodyPos.offsetX||0)}</span>
-                  <input type="range" min={-80} max={80} value={bodyPos.offsetX||0} onInput={e=>setBodyPos(p=>({...p,offsetX:Number(e.target.value)}))} onChange={e=>setBodyPos(p=>({...p,offsetX:Number(e.target.value)}))} style={{flex:1}}/>
+                  <input type="range" min={-80} max={80} value={bodyPos.offsetX||0} onInput={e=>setBodyPos(p=>({...p,offsetX:Number(e.target.value)}))} onChange={e=>setBodyPos(p=>({...p,offsetX:Number(e.target.value)}))} onTouchEnd={dblTapReset('bodyOffsetX',()=>setBodyPos(p=>({...p,offsetX:0})))} style={{flex:1}}/>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {bodyPos.offsetY>0?`+${bodyPos.offsetY}`:(bodyPos.offsetY||0)}</span>
-                  <input type="range" min={-80} max={80} value={bodyPos.offsetY||0} onInput={e=>setBodyPos(p=>({...p,offsetY:Number(e.target.value)}))} onChange={e=>setBodyPos(p=>({...p,offsetY:Number(e.target.value)}))} style={{flex:1}}/>
+                  <input type="range" min={-80} max={80} value={bodyPos.offsetY||0} onInput={e=>setBodyPos(p=>({...p,offsetY:Number(e.target.value)}))} onChange={e=>setBodyPos(p=>({...p,offsetY:Number(e.target.value)}))} onTouchEnd={dblTapReset('bodyOffsetY',()=>setBodyPos(p=>({...p,offsetY:0})))} style={{flex:1}}/>
                 </div>
                 {colors.length>0&&(
                   <>
@@ -2210,7 +2230,7 @@ function PaletteStory() {
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:colors.length>0?6:0}}>
                         <span style={{fontSize:'.54rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>回転 {ft.rotation?Math.round(ft.rotation):0}°</span>
-                        <input type="range" min={-180} max={180} value={Math.round(ft.rotation||0)} onInput={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} style={{flex:1}}/>
+                        <input type="range" min={-180} max={180} value={Math.round(ft.rotation||0)} onInput={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onTouchEnd={dblTapReset('ftRotation'+ft.id,()=>updateFreeText(ft.id,{rotation:0}))} style={{flex:1}}/>
                       </div>
                       {colors.length>0&&(
                         <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
@@ -2268,7 +2288,7 @@ function PaletteStory() {
                 ['Photo','写真を選択'],
                 ['Color','色を抽出してパレットから3色を選ぶ・背景色を選ぶ'],
                 ['Card','カラーカードのスタイル・大きさ・位置を選ぶ'],
-                ['Title','タイトルを入力または提案から選ぶ'],
+                ['Title','タイトルを入力する'],
                 ['Body','本文・日付などを入力、間隔も調整できる'],
                 ['Save','画像を保存'],
               ].map(([label,desc])=>(
@@ -2282,7 +2302,8 @@ function PaletteStory() {
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
               ピンチで拡大縮小、ドラッグで移動<br/>
               ダブルタップで元のサイズに戻る<br/>
-              タブをタップで編集パネルを開閉
+              タブをタップで編集パネルを開閉<br/>
+              位置調整のスライダーはダブルタップで0に戻せる
             </div>
             <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>全画面で使う方法</div>
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
