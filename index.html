@@ -453,43 +453,46 @@ function pickDiverse3(hexes, start=0) {
   })).map(o=>({...o,info:rgbInfo(o.rgb)}));
 
   const n=items.length;
-  const offset=((start%n)+n)%n;
-  const rotated=items.slice(offset).concat(items.slice(0,offset));
+  const off=((start%n)+n)%n;
   const selected=[];
   const add=o=>{if(o&&!selected.some(x=>x.hex===o.hex))selected.push(o);};
+  // ソートすると常に同じ1位が選ばれてoffsetが意味を持たなくなるため、
+  // 上位候補プールの中からoffsetで選ぶ位置をずらす
+  const pickFrom=pool=>pool.length?pool[off%pool.length]:null;
 
-  const colorful=rotated.filter(o=>o.info.s>.38 && o.info.br>68 && o.info.br<238);
-  const lightColor=rotated.filter(o=>o.info.br>175 && o.info.s>.16);
-  const usable=rotated.filter(o=>o.info.br>48 && o.info.br<240);
+  const colorful=items.filter(o=>o.info.s>.38 && o.info.br>68 && o.info.br<238)
+    .sort((a,b)=>(b.info.s*2.4 + b.info.br/500) - (a.info.s*2.4 + a.info.br/500));
+  const lightColorAll=items.filter(o=>o.info.br>175 && o.info.s>.16);
+  const usable=items.filter(o=>o.info.br>48 && o.info.br<240);
 
-  // 1. 写真の中で一番「色」として目立つ色。
-  add(colorful.slice().sort((a,b)=>
-    (b.info.s*2.4 + b.info.br/500) - (a.info.s*2.4 + a.info.br/500)
-  )[0]);
+  // 1. 写真の中で「色」として目立つ色（offsetでずらして毎回変える）。
+  add(pickFrom(colorful));
 
   // 2. 一色目と色相が離れた、明るい色または別の鮮やかな色。
   if(selected.length){
     const first=selected[0];
-    add(lightColor.slice().sort((a,b)=>{
+    const lightColor=lightColorAll.slice().sort((a,b)=>{
       const as=hueDiff(a.info.h,first.info.h)*1.5 + a.info.s*90 + a.info.br*.18;
       const bs=hueDiff(b.info.h,first.info.h)*1.5 + b.info.s*90 + b.info.br*.18;
       return bs-as;
-    })[0]);
+    });
+    add(pickFrom(lightColor));
   }
 
   // 3. 既存2色と最も離れた代表色。ただし暗色・ほぼ無彩色は後回し。
   const thirdPool=usable.filter(o=>!selected.some(x=>x.hex===o.hex));
-  add(thirdPool.slice().sort((a,b)=>{
+  const thirdSorted=thirdPool.slice().sort((a,b)=>{
     const ad=Math.min(...selected.map(s=>toneDistance(a.rgb,s.rgb))) + a.info.s*55 + (a.info.br>125?18:0);
     const bd=Math.min(...selected.map(s=>toneDistance(b.rgb,s.rgb))) + b.info.s*55 + (b.info.br>125?18:0);
     return bd-ad;
-  })[0]);
+  });
+  add(pickFrom(thirdSorted));
 
   // 足りないときのみ残りから補充。
   for(const o of colorful){if(selected.length>=3)break;add(o);}
-  for(const o of lightColor){if(selected.length>=3)break;add(o);}
+  for(const o of lightColorAll){if(selected.length>=3)break;add(o);}
   for(const o of usable){if(selected.length>=3)break;add(o);}
-  for(const o of rotated){if(selected.length>=3)break;add(o);}
+  for(const o of items){if(selected.length>=3)break;add(o);}
 
   return selected.slice(0,3).map(o=>o.hex);
 }
@@ -1707,7 +1710,7 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
-      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v9</div>
+      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v10</div>
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)',transition:'flex-basis .18s ease'}}
@@ -1737,7 +1740,7 @@ function PaletteStory() {
               if(ft){
                 const dx=e.touches[0].clientX-e.touches[1].clientX;
                 const dy=e.touches[0].clientY-e.touches[1].clientY;
-                freeTextGestureRef.current={mode:'rotate',id:selectedTextId,startAngle:Math.atan2(dy,dx),startRotation:ft.rotation||0};
+                freeTextGestureRef.current={mode:'rotate',id:selectedTextId,startAngle:Math.atan2(dy,dx),startRotation:ft.rotation||0,startDist:Math.sqrt(dx*dx+dy*dy),startSize:ft.size||28};
                 e.stopPropagation();
                 return;
               }
@@ -1767,7 +1770,9 @@ function PaletteStory() {
               const dy=e.touches[0].clientY-e.touches[1].clientY;
               const angle=Math.atan2(dy,dx);
               const delta=(angle-g.startAngle)*(180/Math.PI);
-              updateFreeText(g.id,{rotation:g.startRotation+delta});
+              const dist=Math.sqrt(dx*dx+dy*dy);
+              const newSize=g.startDist?Math.max(11,Math.min(120,Math.round(g.startSize*(dist/g.startDist)))):g.startSize;
+              updateFreeText(g.id,{rotation:g.startRotation+delta,size:newSize});
               return;
             }
             if(e.touches.length===2&&vt.pinching){
@@ -1970,12 +1975,6 @@ function PaletteStory() {
                             <button onClick={clearColors} style={{WebkitAppearance:'none',appearance:'none',background:'none',border:'none',padding:0,fontSize:'.56rem',letterSpacing:'.04em',color:'#B685C1',fontWeight:700,cursor:'pointer'}}>クリア</button>
                           )}
                         </div>
-                        <div style={{fontSize:'8px',color:'#B685C1',background:'#FBF5FC',border:'1px dashed #D9C7E3',borderRadius:4,padding:'4px 6px',marginBottom:6,wordBreak:'break-all',lineHeight:1.5}}>
-                          colors: {colors.join(', ')}<br/>
-                          colorSlots: {colorSlots.map(c=>c||'null').join(', ')}<br/>
-                          palette[0-4]: {palette.slice(0,5).join(', ')}<br/>
-                          colorsInPalette: {colors.map(c=>palette.includes(c)?'YES':'NO').join(', ')}
-                        </div>
                         <div style={{display:'grid',gridTemplateColumns:'repeat(9,1fr)',gap:4}}>
                           {palette.map((hex,i)=>{
                             const sel=colorSlots.includes(hex);
@@ -2176,7 +2175,7 @@ function PaletteStory() {
                 <PBtn onClick={addFreeText} full={true} style={{padding:'8px 8px',fontSize:'.78rem',marginBottom:8}}>＋ テキストを追加</PBtn>
                 {freeTexts.length===0&&(
                   <div style={{fontSize:'.68rem',color:'#8A90A0',textAlign:'center',padding:'6px 0'}}>
-                    追加後はプレビュー上でドラッグ移動・2本指で回転できます。
+                    追加後はプレビュー上でドラッグ移動・2本指でひねって回転、つまんで拡大縮小できます。
                   </div>
                 )}
                 {freeTexts.map((ft,idx)=>{
