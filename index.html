@@ -1707,7 +1707,7 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
-      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v7</div>
+      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v9</div>
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)',transition:'flex-basis .18s ease'}}
@@ -1904,7 +1904,7 @@ function PaletteStory() {
             background:'#FFFFFF',borderTop:'1px solid #E7DDEA',
             borderBottom:'1px solid #E7DDEA',
             overflowY:'auto',
-            maxHeight:keyboardOpen?'58%':'26dvh',
+            maxHeight:keyboardOpen?'58%':'34dvh',
             minHeight:keyboardOpen?'170px':undefined,
             overscrollBehavior:'contain',
             WebkitOverflowScrolling:'touch',
@@ -1969,6 +1969,12 @@ function PaletteStory() {
                           {colors.length>0&&(
                             <button onClick={clearColors} style={{WebkitAppearance:'none',appearance:'none',background:'none',border:'none',padding:0,fontSize:'.56rem',letterSpacing:'.04em',color:'#B685C1',fontWeight:700,cursor:'pointer'}}>クリア</button>
                           )}
+                        </div>
+                        <div style={{fontSize:'8px',color:'#B685C1',background:'#FBF5FC',border:'1px dashed #D9C7E3',borderRadius:4,padding:'4px 6px',marginBottom:6,wordBreak:'break-all',lineHeight:1.5}}>
+                          colors: {colors.join(', ')}<br/>
+                          colorSlots: {colorSlots.map(c=>c||'null').join(', ')}<br/>
+                          palette[0-4]: {palette.slice(0,5).join(', ')}<br/>
+                          colorsInPalette: {colors.map(c=>palette.includes(c)?'YES':'NO').join(', ')}
                         </div>
                         <div style={{display:'grid',gridTemplateColumns:'repeat(9,1fr)',gap:4}}>
                           {palette.map((hex,i)=>{
