@@ -1718,7 +1718,6 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
-      <div style={{position:'fixed',top:2,right:4,zIndex:9999,fontSize:'9px',color:'rgba(0,0,0,.25)',fontFamily:'monospace',pointerEvents:'none'}}>v11</div>
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)',transition:'flex-basis .18s ease'}}
@@ -2285,15 +2284,15 @@ function PaletteStory() {
             <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:700,fontSize:'1.05rem',color:'#3D4458',marginBottom:14}}>How to use</div>
             <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.85,color:'#667A8C',marginBottom:10}}>
               {[
-                ['Photo','写真を選択'],
+                ['Photo','写真を選択・位置を微調整'],
                 ['Color','色を抽出してパレットから3色を選ぶ・背景色を選ぶ'],
                 ['Card','カラーカードのスタイル・大きさ・位置を選ぶ'],
                 ['Title','タイトルを入力する'],
                 ['Body','本文・日付などを入力、間隔も調整できる'],
+                ['Text+','自由な位置にテキストを追加。ドラッグで移動、2本指で回転・拡大縮小できる'],
                 ['Save','画像を保存'],
               ].map(([label,desc])=>(
-                <div key={label} style={{marginBottom:8}}>
-                  <b style={{color:'#3D4458',fontWeight:800}}>{label}</b>
+                <div key={label} style={{marginBottom:8}}>                  <b style={{color:'#3D4458',fontWeight:800}}>{label}</b>
                   <div style={{marginTop:1}}>{desc}</div>
                 </div>
               ))}
@@ -2318,6 +2317,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'12px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
               OK
             </button>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#C8BDD4',marginTop:10}}>v12</div>
           </div>
         </div>
       )}
