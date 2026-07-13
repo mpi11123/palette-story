@@ -958,6 +958,7 @@ function PaletteStory() {
   const freeTextGestureRef=useRef({mode:null,id:null,startX:0,startY:0,startTX:0,startTY:0,startAngle:0,startRotation:0});
   // スライダーをダブルタップで0（既定値）に戻す共通ヘルパー
   const lastTapRef=useRef({});
+  const [snapGuide,setSnapGuide]=useState({x:false,y:false}); // 中央スナップのガイド線表示用
   const dblTapReset=(key,resetFn)=>()=>{
     const now=Date.now();
     const last=lastTapRef.current[key]||0;
@@ -1770,7 +1771,13 @@ function PaletteStory() {
               const r=e.currentTarget.getBoundingClientRect();
               const dx=(e.touches[0].clientX-g.startX)*(CW/r.width);
               const dy=(e.touches[0].clientY-g.startY)*(CH/r.height);
-              updateFreeText(g.id,{x:g.startTX+dx,y:g.startTY+dy});
+              let nx=g.startTX+dx, ny=g.startTY+dy;
+              const SNAP=10;
+              const snapX=Math.abs(nx-CW/2)<SNAP, snapY=Math.abs(ny-CH/2)<SNAP;
+              if(snapX) nx=CW/2;
+              if(snapY) ny=CH/2;
+              setSnapGuide({x:snapX,y:snapY});
+              updateFreeText(g.id,{x:nx,y:ny});
               return;
             }
             if(g.mode==='rotate' && e.touches.length===2){
@@ -1813,6 +1820,7 @@ function PaletteStory() {
             const g=freeTextGestureRef.current;
             const wasTextGesture=!!g.mode;
             freeTextGestureRef.current={mode:null,id:null};
+            setSnapGuide({x:false,y:false});
             vt.pinching=false;
             if(tab==='text' && !wasTextGesture && !vt.dragging && e.changedTouches && e.changedTouches[0]){
               const r=e.currentTarget.getBoundingClientRect();
@@ -1856,6 +1864,12 @@ function PaletteStory() {
             }
           }}
         />
+        {snapGuide.x&&(
+          <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)',pointerEvents:'none',zIndex:30}}/>
+        )}
+        {snapGuide.y&&(
+          <div style={{position:'absolute',top:'50%',left:0,right:0,height:1,background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)',pointerEvents:'none',zIndex:30}}/>
+        )}
         {/* 写真未選択時：写真枠だけを確実にタップ可能にする */}
         {!img&&(
           <label
@@ -2227,10 +2241,14 @@ function PaletteStory() {
                         <button onClick={()=>updateFreeText(ft.id,{bold:false})} style={{padding:'5px 0',background:!ft.bold?'#EEE5F5':'#fff',color:!ft.bold?'#3D4458':'#8A90A0',border:`1.5px solid ${!ft.bold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',fontSize:'.68rem',cursor:'pointer'}}>Regular</button>
                         <button onClick={()=>updateFreeText(ft.id,{bold:true})} style={{padding:'5px 0',background:ft.bold?'#EEE5F5':'#fff',color:ft.bold?'#3D4458':'#8A90A0',border:`1.5px solid ${ft.bold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',fontSize:'.68rem',fontWeight:700,cursor:'pointer'}}>Bold</button>
                       </div>
-                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:colors.length>0?6:0}}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
                         <span style={{fontSize:'.54rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>回転 {ft.rotation?Math.round(ft.rotation):0}°</span>
                         <input type="range" min={-180} max={180} value={Math.round(ft.rotation||0)} onInput={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onTouchEnd={dblTapReset('ftRotation'+ft.id,()=>updateFreeText(ft.id,{rotation:0}))} style={{flex:1}}/>
                       </div>
+                      <button onClick={()=>updateFreeText(ft.id,{x:CW/2,y:CH/2})}
+                        style={{width:'100%',padding:'6px 0',border:'1.5px solid #D9C7E3',borderRadius:3,background:'#fff',color:'#B685C1',fontFamily:'inherit',fontSize:'.7rem',fontWeight:700,cursor:'pointer',marginBottom:colors.length>0?6:0}}>
+                        ⊕ 中央に配置
+                      </button>
                       {colors.length>0&&(
                         <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
                           {[...colors,...bgSugs,'#3D4458','#FFFFFF'].map((hex,i)=>(
@@ -2289,7 +2307,7 @@ function PaletteStory() {
                 ['Card','カラーカードのスタイル・大きさ・位置を選ぶ'],
                 ['Title','タイトルを入力する'],
                 ['Body','本文・日付などを入力、間隔も調整できる'],
-                ['Text+','自由な位置にテキストを追加。ドラッグで移動、2本指で回転・拡大縮小できる'],
+                ['Text+','自由な位置にテキストを追加。ドラッグで移動（中央に近づくとガイド線でピタッと揃う）、2本指で回転・拡大縮小、「中央に配置」ボタンでも置ける'],
                 ['Save','画像を保存'],
               ].map(([label,desc])=>(
                 <div key={label} style={{marginBottom:8}}>                  <b style={{color:'#3D4458',fontWeight:800}}>{label}</b>
@@ -2317,7 +2335,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'12px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
               OK
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#C8BDD4',marginTop:10}}>v12</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#C8BDD4',marginTop:10}}>v13</div>
           </div>
         </div>
       )}
