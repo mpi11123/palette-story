@@ -1608,7 +1608,12 @@ function PaletteStory() {
       } else {
         next=[entry,...prev].slice(0,24); // 最大24件
       }
-      try{localStorage.setItem('ps_gallery',JSON.stringify(next));}catch{}
+      // localStorageは容量制限が厳しいので、重いdataUrl(高解像度画像)は保存せず
+      // サムネイルと編集内容だけを保存する。メモリ上のnextにはdataUrlを残す（このセッション中は使える）
+      try{
+        const lite=next.map(({dataUrl,...rest})=>rest);
+        localStorage.setItem('ps_gallery',JSON.stringify(lite));
+      }catch{}
       return next;
     });
     setEditingGalleryId(entry.id); // 以降はこの作品として追跡する
@@ -1686,18 +1691,34 @@ function PaletteStory() {
       </div>
       {galleryPreview&&(
         <div style={{position:'fixed',inset:0,background:'rgba(17,17,17,.92)',zIndex:900,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'18px'}}>
-          <img src={galleryPreview.dataUrl} style={{maxWidth:'92%',maxHeight:'76vh',objectFit:'contain',borderRadius:4,boxShadow:'0 12px 40px rgba(0,0,0,.35)'}}/>
+          <img src={galleryPreview.dataUrl||galleryPreview.thumbUrl} style={{maxWidth:'92%',maxHeight:'76vh',objectFit:'contain',borderRadius:4,boxShadow:'0 12px 40px rgba(0,0,0,.35)'}}/>
           <div style={{display:'grid',gridTemplateColumns:galleryPreview.editState?'1fr 1fr 1fr 1fr':'1fr 1fr 1fr',gap:8,width:'100%',maxWidth:galleryPreview.editState?420:360,marginTop:14}}>
             <button onClick={()=>setGalleryPreview(null)} style={{padding:'11px',border:'none',borderRadius:4,background:'#fff',color:'#3D4458',fontFamily:'inherit',fontWeight:700}}>戻る</button>
             {galleryPreview.editState&&(
               <button onClick={()=>{restoreEditState(galleryPreview.editState);setEditingGalleryId(galleryPreview.id);}} style={{padding:'11px',border:'none',borderRadius:4,background:'#fff',color:'#3D4458',fontFamily:'inherit',fontWeight:700}}>編集</button>
             )}
-            <button onClick={()=>shareImage(galleryPreview.dataUrl)} style={{padding:'11px',border:'none',borderRadius:4,background:'#C8A8C8',color:'#fff',fontFamily:'inherit',fontWeight:700}}>保存</button>
+            <button onClick={()=>{
+              if(galleryPreview.dataUrl){ shareImage(galleryPreview.dataUrl); return; }
+              // 前回のセッションからの読み込みでdataUrlが無い場合は、編集内容から画質そのままで作り直してから保存する
+              if(galleryPreview.editState){
+                const gid=galleryPreview.id;
+                restoreEditState(galleryPreview.editState);
+                setEditingGalleryId(gid);
+                setGalleryPreview(null);
+                setTimeout(()=>{
+                  const fresh=saveSnapshotToGallery('overwrite');
+                  if(fresh) shareImage(fresh);
+                },260);
+              }
+            }} style={{padding:'11px',border:'none',borderRadius:4,background:'#C8A8C8',color:'#fff',fontFamily:'inherit',fontWeight:700}}>保存</button>
             <button onClick={()=>{
               if(!window.confirm('この作品をギャラリーから削除しますか？')) return;
               setGallery(prev=>{
                 const next=prev.filter(g=>g.id!==galleryPreview.id);
-                try{localStorage.setItem('ps_gallery',JSON.stringify(next));}catch{}
+                try{
+                  const lite=next.map(({dataUrl,...rest})=>rest);
+                  localStorage.setItem('ps_gallery',JSON.stringify(lite));
+                }catch{}
                 return next;
               });
               setGalleryPreview(null);
@@ -2303,47 +2324,48 @@ function PaletteStory() {
       )}
       {/* How to モーダル */}
       {showHowTo&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}
+        <div style={{position:'fixed',inset:0,background:'rgba(80,60,90,.45)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:500,padding:'20px'}}
           onClick={()=>setShowHowTo(false)}>
-          <div style={{width:'100%',maxWidth:360,background:'#fff',borderRadius:4,padding:'24px',maxHeight:'80vh',overflowY:'auto'}}
+          <div style={{width:'100%',maxWidth:360,background:'#fff',borderRadius:20,padding:'26px 22px',maxHeight:'80vh',overflowY:'auto',boxShadow:'0 20px 50px rgba(150,110,160,.25)'}}
             onClick={e=>e.stopPropagation()}>
-            <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:700,fontSize:'1.05rem',color:'#3D4458',marginBottom:14}}>How to use</div>
-            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.85,color:'#667A8C',marginBottom:10}}>
+            <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'1.15rem',color:'#B685C1',marginBottom:16}}>🎀 How to use</div>
+            <div style={{background:'#FDF7FC',border:'1.5px solid #F0DFF0',borderRadius:14,padding:'14px',fontSize:'.74rem',lineHeight:1.85,color:'#8A7A9C',marginBottom:14}}>
               {[
-                ['Photo','写真を選択・位置を微調整'],
-                ['Color','色を抽出してパレットから3色を選ぶ・背景色を選ぶ'],
-                ['Card','カラーカードのスタイル・大きさ・位置を選ぶ'],
-                ['Title','タイトルを入力する'],
-                ['Body','本文・日付などを入力、間隔も調整できる'],
-                ['Text+','自由な位置にテキストを追加。ドラッグで移動（中央に近づくとガイド線でピタッと揃う）、2本指で回転・拡大縮小、「中央に配置」ボタンでも置ける'],
-                ['Save','画像を保存'],
-              ].map(([label,desc])=>(
-                <div key={label} style={{marginBottom:8}}>                  <b style={{color:'#3D4458',fontWeight:800}}>{label}</b>
-                  <div style={{marginTop:1}}>{desc}</div>
+                ['📷','Photo','写真を選択・位置を微調整'],
+                ['🎨','Color','色を抽出してパレットから3色を選ぶ・背景色を選ぶ'],
+                ['🖼️','Card','カラーカードのスタイル・大きさ・位置を選ぶ'],
+                ['✏️','Title','タイトルを入力する'],
+                ['📝','Body','本文・日付などを入力、間隔も調整できる'],
+                ['➕','Text+','自由な位置にテキストを追加。ドラッグで移動（中央に近づくとガイド線でピタッと揃う）、2本指で回転・拡大縮小、「中央に配置」ボタンでも置ける'],
+                ['💾','Save','画像を保存'],
+              ].map(([emoji,label,desc])=>(
+                <div key={label} style={{marginBottom:10}}>
+                  <b style={{color:'#B685C1',fontWeight:800}}>{emoji} {label}</b>
+                  <div style={{marginTop:2}}>{desc}</div>
                 </div>
               ))}
             </div>
-            <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>プレビューの操作</div>
-            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
+            <div style={{fontWeight:700,fontSize:'.82rem',color:'#B685C1',marginBottom:6}}>✨ プレビューの操作</div>
+            <div style={{background:'#FDF7FC',border:'1.5px solid #F0DFF0',borderRadius:14,padding:'14px',fontSize:'.74rem',lineHeight:1.9,color:'#8A7A9C',marginBottom:14}}>
               ピンチで拡大縮小、ドラッグで移動<br/>
               ダブルタップで元のサイズに戻る<br/>
               タブをタップで編集パネルを開閉<br/>
               位置調整のスライダーはダブルタップで0に戻せる
             </div>
-            <div style={{fontWeight:600,fontSize:'.82rem',color:'#3D4458',marginBottom:6}}>全画面で使う方法</div>
-            <div style={{background:'#FBF7FD',border:'1px solid #E8DDF0',borderRadius:4,padding:'12px',fontSize:'.74rem',lineHeight:1.9,color:'#667A8C',marginBottom:10}}>
+            <div style={{fontWeight:700,fontSize:'.82rem',color:'#B685C1',marginBottom:6}}>📱 全画面で使う方法</div>
+            <div style={{background:'#FDF7FC',border:'1.5px solid #F0DFF0',borderRadius:14,padding:'14px',fontSize:'.74rem',lineHeight:1.9,color:'#8A7A9C',marginBottom:14}}>
               1. Safari下部の共有ボタン（↑）をタップ<br/>
               2. 「ホーム画面に追加」を選択<br/>
               3. 「追加」→ アプリとして使える！
             </div>
-            <div style={{background:'#FFF8E7',border:'1px solid #F0E0C0',borderRadius:4,padding:'12px',fontSize:'.75rem',lineHeight:1.7,color:'#8A7A60',marginBottom:16}}>
-              ! 作品履歴はこのデバイスのSafariに保存されます。「Webサイトデータを消去」すると削除されます。
+            <div style={{background:'#FFF8E7',border:'1.5px solid #F5E3B8',borderRadius:14,padding:'14px',fontSize:'.75rem',lineHeight:1.7,color:'#A18A5C',marginBottom:18}}>
+              ⚠️ 作品履歴はこのデバイスのSafariに保存されます。「Webサイトデータを消去」すると削除されます。
             </div>
             <button onClick={()=>setShowHowTo(false)}
-              style={{width:'100%',padding:'12px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.9rem',fontWeight:600,cursor:'pointer'}}>
-              OK
+              style={{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4B3D9,#C8A8C8)',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.92rem',fontWeight:700,cursor:'pointer',boxShadow:'0 6px 16px rgba(200,168,200,.4)'}}>
+              OK！
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#C8BDD4',marginTop:10}}>v17</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v19</div>
           </div>
         </div>
       )}
