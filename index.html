@@ -422,9 +422,9 @@ function pickMany(px, count=30) {
   const add=o=>{
     if(!o || chosen.some(x=>x.hex===o.hex)) return false;
     const duplicate=chosen.some(x=>
-      hueDiff(x.info.h,o.info.h)<13 &&
-      Math.abs(x.info.light-o.info.light)<24 &&
-      Math.abs(x.info.s-o.info.s)<.18
+      hueDiff(x.info.h,o.info.h)<7 &&
+      Math.abs(x.info.light-o.info.light)<13 &&
+      Math.abs(x.info.s-o.info.s)<.10
     );
     if(duplicate) return false;
     chosen.push(o);
@@ -1178,21 +1178,15 @@ function PaletteStory() {
   };
   const getDifferentAutoColors=(startStrategy, currentColors, blockedHistory=[])=>{
     const blocked=new Set([normalizeColorKey(currentColors),...blockedHistory.map(h=>normalizeColorKey(h.colors))].filter(Boolean));
-    // PALETTEに表示されている色と必ず一致させるため、まずパレット配列から選ぶ
+    // PALETTEに表示されている色と必ず一致させるため、パレット配列だけから選ぶ
+    // （写真から独立して選び直す抜け道は、パレットと不一致になるバグの元だったので廃止）
     const many=palette.length?palette:pickMany(pixels,30);
-    for(let offset=0;offset<Math.max(2,many.length);offset++){
+    for(let offset=0;offset<Math.max(2,many.length*2);offset++){
       const candidate=pickDiverse3(many,startStrategy+offset);
       const key=normalizeColorKey(candidate);
       if(candidate.length===3 && !blocked.has(key)) return {colors:candidate,strategy:startStrategy+offset};
     }
-    // パレットだけでは同じセットしか作れない場合のみ、写真ピクセルから直接探す
-    for(let offset=0;offset<24;offset++){
-      const s=startStrategy+offset;
-      const candidate=pickAuto3FromPixels(pixels,s);
-      const key=normalizeColorKey(candidate);
-      if(candidate.length===3 && !blocked.has(key)) return {colors:candidate,strategy:s};
-    }
-    // それでも見つからなければ同じセットを許す
+    // パレットの色数が少なくて「違う組み合わせ」が作れない場合のみ、同じセットを許す
     return {colors:pickDiverse3(many,startStrategy),strategy:startStrategy};
   };
 
@@ -2365,7 +2359,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4B3D9,#C8A8C8)',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.92rem',fontWeight:700,cursor:'pointer',boxShadow:'0 6px 16px rgba(200,168,200,.4)'}}>
               OK！
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v19</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v21</div>
           </div>
         </div>
       )}
