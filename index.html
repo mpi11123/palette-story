@@ -655,6 +655,7 @@ function colorName(hex, usedNames=null) {
 
   // yellow
   if (h < 76) {
+    if (sat > .55) return pick(['GOLD','MARIGOLD','SAFFRON','SUNSHINE','MUSTARD','AMBER','DIJON','GOLDENROD']);
     if (br > 210) return pick(['LEMON','BUTTER','CREAM','VANILLA','CHIFFON','DAFFODIL','BANANA','CUSTARD']);
     if (sat > .45) return pick(['HONEY','MUSTARD','GOLD','AMBER','SAFFRON','MARIGOLD','OCHRE','DIJON']);
     return pick(['SAND','OAT','WHEAT','KHAKI','STRAW','FLAX','DUNE','RATTAN']);
@@ -954,6 +955,13 @@ function PaletteStory() {
   const [galleryPreview,setGalleryPreview]=useState(null);
   const [editingGalleryId,setEditingGalleryId]=useState(null); // ギャラリーの既存作品を編集中ならそのid
   const [showSaveChoice,setShowSaveChoice]=useState(false); // 上書き/新規保存の選択モーダル
+  const [toast,setToast]=useState(null); // 一瞬だけ出す通知
+  const toastTimerRef=useRef(null);
+  const showToast=(msg)=>{
+    setToast(msg);
+    if(toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current=setTimeout(()=>setToast(null),1800);
+  };
   const viewTransform=useRef({scale:1,x:0,y:0,lastDist:0,lastX:0,lastY:0,pinching:false,dragging:false});
   const [viewScale,setViewScale]=useState(1);
   const [viewOffset,setViewOffset]=useState({x:0,y:0});
@@ -1742,6 +1750,11 @@ function PaletteStory() {
 
       <input id="photoInput" ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleFile}/>
 
+      {toast&&(
+        <div style={{position:'fixed',top:70,left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'rgba(61,68,88,.92)',color:'#fff',padding:'10px 18px',borderRadius:20,fontSize:'.78rem',fontWeight:600,boxShadow:'0 8px 20px rgba(0,0,0,.2)',pointerEvents:'none',whiteSpace:'nowrap'}}>
+          ✓ {toast}
+        </div>
+      )}
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)',transition:'flex-basis .18s ease'}}
@@ -1811,6 +1824,22 @@ function PaletteStory() {
               const dist=Math.sqrt(dx*dx+dy*dy);
               const newSize=g.startDist?Math.max(11,Math.min(120,Math.round(g.startSize*(dist/g.startDist)))):g.startSize;
               updateFreeText(g.id,{rotation:g.startRotation+delta,size:newSize});
+              return;
+            }
+            if(e.touches.length===2 && !vt.pinching){
+              // 1本指→2本指に増えた瞬間：基準を取り直してからでないとジャンプするので、ここでは移動量を計算しない
+              vt.pinching=true;
+              vt.rect=e.currentTarget.getBoundingClientRect();
+              const dx0=e.touches[0].clientX-e.touches[1].clientX;
+              const dy0=e.touches[0].clientY-e.touches[1].clientY;
+              vt.lastDist=Math.sqrt(dx0*dx0+dy0*dy0);
+              return;
+            }
+            if(e.touches.length===1 && vt.pinching){
+              // 2本指→1本指に減った瞬間：同様に基準を取り直す
+              vt.pinching=false;
+              vt.lastX=e.touches[0].clientX;
+              vt.lastY=e.touches[0].clientY;
               return;
             }
             if(e.touches.length===2&&vt.pinching){
@@ -1929,7 +1958,7 @@ function PaletteStory() {
             palette story.
           </span>
           <div style={{display:'flex',gap:6,pointerEvents:'auto',alignItems:'center'}}>
-            <button aria-label="Home" onClick={(e)=>{e.stopPropagation();saveSnapshotToGallery();setShowGallery(true);}}
+            <button aria-label="Home" onClick={(e)=>{e.stopPropagation();const saved=saveSnapshotToGallery();if(saved)showToast('プロジェクトを保存しました');setShowGallery(true);}}
               style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <SolidIcon name="home" size={16}/>
             </button>
@@ -2359,7 +2388,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4B3D9,#C8A8C8)',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.92rem',fontWeight:700,cursor:'pointer',boxShadow:'0 6px 16px rgba(200,168,200,.4)'}}>
               OK！
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v21</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v23</div>
           </div>
         </div>
       )}
