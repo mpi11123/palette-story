@@ -442,6 +442,15 @@ function pickMany(px, count=30) {
     add(bin.find(o=>o.vivid) || bin.find(o=>o.pastel));
   }
 
+  // 1.5) 色相帯ごとにもう1周、パステル・鮮やかな色を優先して確保する。
+  // （ここをしないと、写真の面積が大きい茶色・ベージュ系だけで残り枠が埋まってしまう）
+  for(const bin of hueBins){
+    add(bin.find(o=>(o.vivid||o.pastel) && !chosen.includes(o)));
+  }
+  for(const bin of hueBins){
+    add(bin.find(o=>(o.vivid||o.pastel) && !chosen.includes(o)));
+  }
+
   // 2) 小面積でも鮮やかな色を優先して追加。
   candidates.slice().sort((a,b)=>b.score-a.score).forEach(add);
 
@@ -1873,7 +1882,14 @@ function PaletteStory() {
             const wasTextGesture=!!g.mode;
             freeTextGestureRef.current={mode:null,id:null};
             setSnapGuide({x:false,y:false});
-            vt.pinching=false;
+            if(e.touches.length===1){
+              // 2本指→1本指に減った：残った指の今の位置を新しい基準にする
+              vt.pinching=false;
+              vt.lastX=e.touches[0].clientX;
+              vt.lastY=e.touches[0].clientY;
+            } else if(e.touches.length===0){
+              vt.pinching=false;
+            }
             if(tab==='text' && !wasTextGesture && !vt.dragging && e.changedTouches && e.changedTouches[0]){
               const r=e.currentTarget.getBoundingClientRect();
               const t=e.changedTouches[0];
@@ -1958,7 +1974,7 @@ function PaletteStory() {
             palette story.
           </span>
           <div style={{display:'flex',gap:6,pointerEvents:'auto',alignItems:'center'}}>
-            <button aria-label="Home" onClick={(e)=>{e.stopPropagation();const saved=saveSnapshotToGallery();if(saved)showToast('プロジェクトを保存しました');setShowGallery(true);}}
+            <button aria-label="Home" onClick={(e)=>{e.stopPropagation();const saved=saveSnapshotToGallery();showToast(saved?'プロジェクトを保存しました':'保存する内容がありません');setShowGallery(true);}}
               style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <SolidIcon name="home" size={16}/>
             </button>
@@ -2351,16 +2367,16 @@ function PaletteStory() {
           onClick={()=>setShowHowTo(false)}>
           <div style={{width:'100%',maxWidth:360,background:'#fff',borderRadius:20,padding:'26px 22px',maxHeight:'80vh',overflowY:'auto',boxShadow:'0 20px 50px rgba(150,110,160,.25)'}}
             onClick={e=>e.stopPropagation()}>
-            <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'1.15rem',color:'#B685C1',marginBottom:16}}>🎀 How to use</div>
+            <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'1.15rem',color:'#B685C1',marginBottom:16}}>𖤐 How to use</div>
             <div style={{background:'#FDF7FC',border:'1.5px solid #F0DFF0',borderRadius:14,padding:'14px',fontSize:'.74rem',lineHeight:1.85,color:'#8A7A9C',marginBottom:14}}>
               {[
-                ['📷','Photo','写真を選択・位置を微調整'],
-                ['🎨','Color','色を抽出してパレットから3色を選ぶ・背景色を選ぶ'],
-                ['🖼️','Card','カラーカードのスタイル・大きさ・位置を選ぶ'],
-                ['✏️','Title','タイトルを入力する'],
-                ['📝','Body','本文・日付などを入力、間隔も調整できる'],
-                ['➕','Text+','自由な位置にテキストを追加。ドラッグで移動（中央に近づくとガイド線でピタッと揃う）、2本指で回転・拡大縮小、「中央に配置」ボタンでも置ける'],
-                ['💾','Save','画像を保存'],
+                ['*','Photo','写真を選択・位置を微調整'],
+                ['*','Color','色を抽出してパレットから3色を選ぶ・背景色を選ぶ'],
+                ['*','Card','カラーカードのスタイル・大きさ・位置を選ぶ'],
+                ['*','Title','タイトルを入力する'],
+                ['*','Body','本文・日付などを入力、間隔も調整できる'],
+                ['*','Text+','自由な位置にテキストを追加。ドラッグで移動（中央に近づくとガイド線でピタッと揃う）、2本指で回転・拡大縮小、「中央に配置」ボタンでも置ける'],
+                ['*','Save','画像を保存'],
               ].map(([emoji,label,desc])=>(
                 <div key={label} style={{marginBottom:10}}>
                   <b style={{color:'#B685C1',fontWeight:800}}>{emoji} {label}</b>
@@ -2368,27 +2384,27 @@ function PaletteStory() {
                 </div>
               ))}
             </div>
-            <div style={{fontWeight:700,fontSize:'.82rem',color:'#B685C1',marginBottom:6}}>✨ プレビューの操作</div>
+            <div style={{fontWeight:700,fontSize:'.82rem',color:'#B685C1',marginBottom:6}}>♡ プレビューの操作</div>
             <div style={{background:'#FDF7FC',border:'1.5px solid #F0DFF0',borderRadius:14,padding:'14px',fontSize:'.74rem',lineHeight:1.9,color:'#8A7A9C',marginBottom:14}}>
               ピンチで拡大縮小、ドラッグで移動<br/>
               ダブルタップで元のサイズに戻る<br/>
               タブをタップで編集パネルを開閉<br/>
               位置調整のスライダーはダブルタップで0に戻せる
             </div>
-            <div style={{fontWeight:700,fontSize:'.82rem',color:'#B685C1',marginBottom:6}}>📱 全画面で使う方法</div>
+            <div style={{fontWeight:700,fontSize:'.82rem',color:'#B685C1',marginBottom:6}}>♡ 全画面で使う方法</div>
             <div style={{background:'#FDF7FC',border:'1.5px solid #F0DFF0',borderRadius:14,padding:'14px',fontSize:'.74rem',lineHeight:1.9,color:'#8A7A9C',marginBottom:14}}>
               1. Safari下部の共有ボタン（↑）をタップ<br/>
               2. 「ホーム画面に追加」を選択<br/>
               3. 「追加」→ アプリとして使える！
             </div>
             <div style={{background:'#FFF8E7',border:'1.5px solid #F5E3B8',borderRadius:14,padding:'14px',fontSize:'.75rem',lineHeight:1.7,color:'#A18A5C',marginBottom:18}}>
-              ⚠️ 作品履歴はこのデバイスのSafariに保存されます。「Webサイトデータを消去」すると削除されます。
+              * 作品履歴はこのデバイスのSafariに保存されます。「Webサイトデータを消去」すると削除されます。
             </div>
             <button onClick={()=>setShowHowTo(false)}
               style={{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4B3D9,#C8A8C8)',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.92rem',fontWeight:700,cursor:'pointer',boxShadow:'0 6px 16px rgba(200,168,200,.4)'}}>
               OK！
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v23</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v24</div>
           </div>
         </div>
       )}
