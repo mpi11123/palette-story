@@ -451,11 +451,19 @@ function pickMany(px, count=30) {
     add(bin.find(o=>(o.vivid||o.pastel) && !chosen.includes(o)));
   }
 
-  // 2) 小面積でも鮮やかな色を優先して追加。
-  candidates.slice().sort((a,b)=>b.score-a.score).forEach(add);
+  // 2) 小面積でも鮮やかな色を優先して追加。ただし茶色系は上限を設けて、
+  //    残り枠が茶色だけで埋まらないようにする。
+  const BROWN_CAP=9;
+  candidates.slice().sort((a,b)=>b.score-a.score).forEach(o=>{
+    if(o.isBrown && chosen.filter(x=>x.isBrown).length>=BROWN_CAP) return;
+    add(o);
+  });
 
-  // 3) 最後に面積のある代表色で補う。
-  candidates.slice().sort((a,b)=>b.area-a.area).forEach(add);
+  // 3) 最後に面積のある代表色で補う（ここも茶色は上限まで）。
+  candidates.slice().sort((a,b)=>b.area-a.area).forEach(o=>{
+    if(o.isBrown && chosen.filter(x=>x.isBrown).length>=BROWN_CAP) return;
+    add(o);
+  });
 
   return chosen.slice(0,count).map(o=>o.hex);
 }
@@ -1167,6 +1175,14 @@ function PaletteStory() {
           px.push([d[j],d[j+1],d[j+2]]);
         }
         setPixels(px);
+        // 写真を変えたら色の抽出もやり直す（前の写真のPALETTEが残ったままにならないように）
+        const many=pickMany(px,30);
+        setPalette(many);
+        const auto=pickDiverse3(many,0);
+        setColors(auto);
+        setColorSlots(auto);
+        const bgs2=auto.map(hex=>{const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return soften(r,g,b);});
+        setBgSugs(bgs2); setSelBg(bgs2[0]); setBgColor(bgs2[0]);
       };
       i.src=ev.target.result;
     };
@@ -1871,6 +1887,9 @@ function PaletteStory() {
               vt.y=My-ratio*(My-vt.y);
               vt.scale=newScale;
               vt.lastDist=dist;
+              const maxOff=Math.max(rect.width,rect.height)*0.9;
+              vt.x=Math.max(-maxOff,Math.min(maxOff,vt.x));
+              vt.y=Math.max(-maxOff,Math.min(maxOff,vt.y));
               setViewScale(vt.scale);
               setViewOffset({x:vt.x,y:vt.y});
             }else if(e.touches.length===1){
@@ -1878,7 +1897,13 @@ function PaletteStory() {
               const dy=e.touches[0].clientY-vt.lastY;
               if(Math.abs(dx)>2||Math.abs(dy)>2)vt.dragging=true;
               vt.lastX=e.touches[0].clientX;vt.lastY=e.touches[0].clientY;
-              if(vt.dragging){vt.x+=dx;vt.y+=dy;setViewOffset({x:vt.x,y:vt.y});}
+              if(vt.dragging){
+                const rect=e.currentTarget.getBoundingClientRect();
+                const maxOff=Math.max(rect.width,rect.height)*0.9;
+                vt.x=Math.max(-maxOff,Math.min(maxOff,vt.x+dx));
+                vt.y=Math.max(-maxOff,Math.min(maxOff,vt.y+dy));
+                setViewOffset({x:vt.x,y:vt.y});
+              }
             }
           }}
           onTouchEnd={(e)=>{
@@ -2409,7 +2434,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4B3D9,#C8A8C8)',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.92rem',fontWeight:700,cursor:'pointer',boxShadow:'0 6px 16px rgba(200,168,200,.4)'}}>
               OK！
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v25</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v27</div>
           </div>
         </div>
       )}
