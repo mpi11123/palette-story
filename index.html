@@ -415,7 +415,10 @@ function pickMany(px, count=30) {
     if(isNearNeutral) score -= 1.25;
     if(isBrown) score -= .75;
 
-    return {c,info,area,score,hex:toHex(...c),vivid,pastel,isDark,isNearNeutral,isBrown};
+    // 上限で使う「地味系」判定はisBrownより広め（明るいベージュ・くすんだオリーブ・グレー系も含む）
+    const isEarthy = (info.s<.50 && ((info.h>=12 && info.h<=78) || info.h>340)) || info.s<.14;
+
+    return {c,info,area,score,hex:toHex(...c),vivid,pastel,isDark,isNearNeutral,isBrown,isEarthy};
   }).filter(o=>o.area>.00025 && o.info.br>18 && o.info.br<249);
 
   const chosen=[];
@@ -451,17 +454,17 @@ function pickMany(px, count=30) {
     add(bin.find(o=>(o.vivid||o.pastel) && !chosen.includes(o)));
   }
 
-  // 2) 小面積でも鮮やかな色を優先して追加。ただし茶色系は上限を設けて、
-  //    残り枠が茶色だけで埋まらないようにする。
-  const BROWN_CAP=9;
+  // 2) 小面積でも鮮やかな色を優先して追加。ただし地味系（茶・ベージュ・オリーブ・グレー）は
+  //    上限を設けて、残り枠がそれだけで埋まらないようにする。
+  const BROWN_CAP=8;
   candidates.slice().sort((a,b)=>b.score-a.score).forEach(o=>{
-    if(o.isBrown && chosen.filter(x=>x.isBrown).length>=BROWN_CAP) return;
+    if(o.isEarthy && chosen.filter(x=>x.isEarthy).length>=BROWN_CAP) return;
     add(o);
   });
 
-  // 3) 最後に面積のある代表色で補う（ここも茶色は上限まで）。
+  // 3) 最後に面積のある代表色で補う（ここも地味系は上限まで）。
   candidates.slice().sort((a,b)=>b.area-a.area).forEach(o=>{
-    if(o.isBrown && chosen.filter(x=>x.isBrown).length>=BROWN_CAP) return;
+    if(o.isEarthy && chosen.filter(x=>x.isEarthy).length>=BROWN_CAP) return;
     add(o);
   });
 
@@ -973,6 +976,7 @@ function PaletteStory() {
   const [editingGalleryId,setEditingGalleryId]=useState(null); // ギャラリーの既存作品を編集中ならそのid
   const [showSaveChoice,setShowSaveChoice]=useState(false); // 上書き/新規保存の選択モーダル
   const [toast,setToast]=useState(null); // 一瞬だけ出す通知
+  const [pinchDebug,setPinchDebug]=useState(null); // 一時デバッグ用（ピンチズーム確認）
   const toastTimerRef=useRef(null);
   const showToast=(msg)=>{
     setToast(msg);
@@ -1785,6 +1789,13 @@ function PaletteStory() {
           ✓ {toast}
         </div>
       )}
+      {pinchDebug&&(
+        <div style={{position:'fixed',top:70,right:4,zIndex:9999,background:'rgba(0,0,0,.75)',color:'#fff',fontSize:'9px',lineHeight:1.5,padding:'5px 7px',borderRadius:4,fontFamily:'monospace',pointerEvents:'none'}}>
+          rect:{pinchDebug.rectW}x{pinchDebug.rectH} top:{pinchDebug.rectT}<br/>
+          M:{pinchDebug.Mx},{pinchDebug.My} scale:{pinchDebug.scale}<br/>
+          offset:{pinchDebug.x},{pinchDebug.y}
+        </div>
+      )}
 
       {/* ── 全画面プレビュー ── */}
       <div style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'linear-gradient(180deg,#FBF8FF 0%,#F2ECF8 100%)',transition:'flex-basis .18s ease'}}
@@ -1892,6 +1903,7 @@ function PaletteStory() {
               vt.y=Math.max(-maxOff,Math.min(maxOff,vt.y));
               setViewScale(vt.scale);
               setViewOffset({x:vt.x,y:vt.y});
+              setPinchDebug({rectW:Math.round(rect.width),rectH:Math.round(rect.height),rectT:Math.round(rect.top),Mx:Math.round(Mx),My:Math.round(My),scale:newScale.toFixed(2),x:Math.round(vt.x),y:Math.round(vt.y)});
             }else if(e.touches.length===1){
               const dx=e.touches[0].clientX-vt.lastX;
               const dy=e.touches[0].clientY-vt.lastY;
@@ -2434,7 +2446,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4B3D9,#C8A8C8)',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.92rem',fontWeight:700,cursor:'pointer',boxShadow:'0 6px 16px rgba(200,168,200,.4)'}}>
               OK！
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v27</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v28</div>
           </div>
         </div>
       )}
