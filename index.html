@@ -1874,7 +1874,7 @@ function PaletteStory() {
         </button>
 
         {showSafeArea&&(
-          <div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',height:'100%',width:'auto',aspectRatio:'9/16',maxWidth:'100%',pointerEvents:'none',zIndex:35}}>
+          <div style={{position:'absolute',top:'50%',left:'50%',transform:`translate(-50%,-50%) scale(${viewScale}) translate(${viewOffset.x/viewScale}px,${viewOffset.y/viewScale}px)`,transformOrigin:`${viewOrigin.x}% ${viewOrigin.y}%`,height:'100%',width:'auto',aspectRatio:'9/16',maxWidth:'100%',pointerEvents:'none',zIndex:35}}>
             <div style={{position:'absolute',top:0,left:0,right:0,height:'13%',background:'repeating-linear-gradient(135deg,rgba(255,90,90,.28) 0 6px,rgba(255,90,90,.12) 6px 12px)',display:'flex',alignItems:'center',justifyContent:'center'}}>
               <span style={{fontSize:'9px',color:'#fff',fontWeight:700,textShadow:'0 1px 3px rgba(0,0,0,.5)'}}>プロフィール等で隠れやすい</span>
             </div>
@@ -2100,33 +2100,33 @@ function PaletteStory() {
 
 
         {/* ロゴ＋アクション（上部オーバーレイ） */}
-        <div style={{position:'absolute',top:0,left:0,right:0,padding:'10px 14px',background:'linear-gradient(to bottom,rgba(247,243,250,.96),rgba(247,243,250,.38),transparent)',display:keyboardOpen?'none':'flex',justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
-          <span style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'1rem',color:'#3D4458',letterSpacing:'.01em',opacity:.95}}>
+        <div style={{position:'absolute',top:0,left:0,right:0,padding:'10px 14px',background:'linear-gradient(to bottom,rgba(247,243,250,.96),rgba(247,243,250,.38),transparent)',display:keyboardOpen?'none':'flex',flexWrap:'wrap',rowGap:6,justifyContent:'space-between',alignItems:'center',pointerEvents:'none'}}>
+          <span style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'.92rem',color:'#3D4458',letterSpacing:'.01em',opacity:.95}}>
             palette story.
           </span>
-          <div style={{display:'flex',gap:6,pointerEvents:'auto',alignItems:'center'}}>
+          <div style={{display:'flex',flexWrap:'wrap',gap:5,justifyContent:'flex-end',pointerEvents:'auto',alignItems:'center',maxWidth:'72%'}}>
             <button aria-label="Home" onClick={(e)=>{e.stopPropagation();const saved=saveSnapshotToGallery();showToast(saved?'プロジェクトを保存しました':'保存する内容がありません');setShowGallery(true);}}
-              style={{width:34,height:34,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
-              <SolidIcon name="home" size={16}/>
+              style={{width:32,height:32,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              <SolidIcon name="home" size={15}/>
             </button>
             <button aria-label="Hint" onClick={(e)=>{e.stopPropagation();setShowHowTo(true);}}
-              style={{height:34,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
-              <span style={{fontSize:'.86rem',lineHeight:1}}>💡</span> Hint
+              style={{width:32,height:32,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              <span style={{fontSize:'.9rem',lineHeight:1}}>💡</span>
             </button>
             <button aria-label="Reset" onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');setPhotoFrameWidth(9);setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});setFreeTexts([]);setSelectedTextId(null);setEditingGalleryId(null);setPhotoOffsetX(0);setPhotoOffsetY(0);}}}
-              style={{height:34,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
-              <span style={{fontSize:'1rem',fontWeight:900,lineHeight:1}}>↺</span> Reset
+              style={{width:32,height:32,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              <span style={{fontSize:'1.05rem',fontWeight:900,lineHeight:1}}>↺</span>
             </button>
             {img&&(
               <button onClick={()=>setShowFullPreview(true)}
-                style={{height:34,padding:'0 10px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
-                <SolidIcon name="eye" size={14}/> Preview
+                style={{height:32,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.64rem',fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+                <SolidIcon name="eye" size={13}/> Preview
               </button>
             )}
             {img&&colors.length>0&&(
               <button onClick={()=>{ if(editingGalleryId){ setShowSaveChoice(true); } else { save('new'); } }}
-                style={{height:34,padding:'0 10px',display:'inline-flex',alignItems:'center',gap:5,background:'#C8A8C8',color:'#fff',border:'1px solid #C8A8C8',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.16)'}}>
-                <SolidIcon name="save" size={14}/> Save
+                style={{height:32,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'#C8A8C8',color:'#fff',border:'1px solid #C8A8C8',borderRadius:3,fontFamily:'inherit',fontSize:'.64rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.16)'}}>
+                <SolidIcon name="save" size={13}/> Save
               </button>
             )}
           </div>
@@ -2544,7 +2544,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4B3D9,#C8A8C8)',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.92rem',fontWeight:700,cursor:'pointer',boxShadow:'0 6px 16px rgba(200,168,200,.4)'}}>
               OK！
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v31</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v32</div>
           </div>
         </div>
       )}
