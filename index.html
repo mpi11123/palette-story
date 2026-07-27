@@ -974,6 +974,7 @@ function PaletteStory() {
   const [colorHistory, setColorHistory] = useState([]); // [{colors, bgColor}]
   const [photoSize,setPhotoSize]= useState('M');
   const [photoFrame,setPhotoFrame]= useState('none');
+  const [photoFrameWidth,setPhotoFrameWidth]= useState(9); // 白ふちの太さ
   const [photoOffsetX,setPhotoOffsetX]= useState(0); // 写真の左右微調整
   const [photoOffsetY,setPhotoOffsetY]= useState(0); // 写真の上下微調整
   const [fitMode,  setFitMode]  = useState('contain'); // 'contain' | 'trim'
@@ -1116,7 +1117,7 @@ function PaletteStory() {
     version: 2,
     imageSrc: img ? img.src : null,
     colors, bgColor, bgSugs, selBg, strategy, colorHistory,
-    photoSize, fitMode, crop, finalCrop, photoFrame,
+    photoSize, fitMode, crop, finalCrop, photoFrame, photoFrameWidth,
     cardStyle, cardAlign, cardScale, cardOffsetX, cardOffsetY, photoOffsetX, photoOffsetY,
     titleTxt, bodyTxt, titleAlign, bodyAlign, titleLang, titleSeed,
     titlePos, bodyPos, textOffset, freeTexts,
@@ -1142,6 +1143,7 @@ function PaletteStory() {
     setCrop(st.crop||null);
     setFinalCrop(st.finalCrop||null);
     setPhotoFrame(st.photoFrame||'none');
+    setPhotoFrameWidth(st.photoFrameWidth||9);
     setCardStyle(st.cardStyle||'pantone');
     setCardAlign(st.cardAlign||'right');
     setCardScale(st.cardScale||90);
@@ -1406,8 +1408,8 @@ function PaletteStory() {
       photoW=srcW*_sc; photoH=srcH*_sc;
       photoX=(CW-photoW)/2; photoY=PAD;
     }
-    photoX+=(photoOffsetX||0); photoY+=(photoOffsetY||0);
-    const frameW=(img && photoFrame==='white')?9:0;
+    photoX+=(photoOffsetX||0); photoY-=(photoOffsetY||0);
+    const frameW=(img && photoFrame==='white')?photoFrameWidth:0;
     const photoBtm=photoY+photoH+frameW;
 
     // 写真描画
@@ -1466,7 +1468,7 @@ function PaletteStory() {
       let cx=cardOffsetX>=0 ? base+(cardOffsetX/80)*rightSlack : base+(cardOffsetX/80)*leftSlack;
       cx=Math.max(cxMin, Math.min(cxMax, cx));
       // 重なり量: カードの上30%が写真に重なる
-      const cy=photoBtm-Math.round(cH*0.30)+cardOffsetY;
+      const cy=photoBtm-Math.round(cH*0.30)-cardOffsetY;
       // scaleしてから描画
       ctx.save();
       ctx.translate(cx,cy);
@@ -1489,7 +1491,7 @@ function PaletteStory() {
       // snapからX位置を計算
       const tSnap=titlePos.snap||titleAlign;
       const tOffX=titlePos.offsetX||0;
-      const tY=curY+titlePos.offsetY;
+      const tY=curY-titlePos.offsetY;
       ctx.fillStyle=titleColor; const tw=titleBold===true?700:400; ctx.font=`${tw} ${titleSize}px ${titleFont}`;
       ctx.textBaseline='alphabetic';
       const tlines=wrapText(ctx,titleTxt.trim(),textW);
@@ -1510,7 +1512,7 @@ function PaletteStory() {
     if (bodyTxt.trim()) {
       const bSnap=bodyPos.snap||bodyAlign;
       const bOffX=bodyPos.offsetX||0;
-      const bY=titleBaseY+bodyPos.offsetY+bodyGap; // bodyGap：左(マイナス)で間隔が狭く、右(プラス)で広くなる
+      const bY=titleBaseY-bodyPos.offsetY+bodyGap; // bodyGap：左(マイナス)で間隔が狭く、右(プラス)で広くなる
       ctx.fillStyle=bodyColor; const bw=bodyBold===true?700:400; ctx.font=`${bw} ${bodySize}px ${bodyFont}`;
       ctx.textBaseline='alphabetic';
       const blines=wrapText(ctx,bodyTxt.trim(),textW);
@@ -1541,7 +1543,7 @@ function PaletteStory() {
     });
     // 両方空ならガイド
 
-  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,cardOffsetX,cardOffsetY,photoOffsetX,photoOffsetY,photoSize,photoFrame,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,bodyGap,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos,freeTexts]);
+  },[img,bgColor,colors,cardStyle,cardAlign,cardScale,cardOffsetX,cardOffsetY,photoOffsetX,photoOffsetY,photoSize,photoFrame,photoFrameWidth,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,bodyGap,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos,freeTexts]);
 
   useEffect(()=>{render();},[render]);
 
@@ -1867,13 +1869,8 @@ function PaletteStory() {
         onClick={()=>{}}>
 
         <button onClick={()=>setShowSafeArea(v=>!v)}
-          style={{position:'absolute',top:8,right:8,zIndex:40,WebkitAppearance:'none',appearance:'none',border:'none',borderRadius:20,padding:'6px 12px',fontSize:'.62rem',fontWeight:700,fontFamily:'inherit',cursor:'pointer',background:showSafeArea?'#3D4458':'rgba(255,255,255,.85)',color:showSafeArea?'#fff':'#8A90A0',boxShadow:'0 2px 8px rgba(0,0,0,.12)'}}>
+          style={{position:'absolute',top:62,right:8,zIndex:40,WebkitAppearance:'none',appearance:'none',border:'none',borderRadius:20,padding:'6px 12px',fontSize:'.62rem',fontWeight:700,fontFamily:'inherit',cursor:'pointer',background:showSafeArea?'#3D4458':'rgba(255,255,255,.85)',color:showSafeArea?'#fff':'#8A90A0',boxShadow:'0 2px 8px rgba(0,0,0,.12)',display:keyboardOpen?'none':'block'}}>
           {showSafeArea?'安全エリア表示中':'安全エリア表示'}
-        </button>
-
-        <button onClick={applyLayout}
-          style={{position:'absolute',top:8,left:8,zIndex:40,WebkitAppearance:'none',appearance:'none',border:'none',borderRadius:20,padding:'6px 12px',fontSize:'.62rem',fontWeight:700,fontFamily:'inherit',cursor:'pointer',background:'rgba(255,255,255,.85)',color:'#B685C1',boxShadow:'0 2px 8px rgba(0,0,0,.12)',display:img?'block':'none'}}>
-          ⟲ おまかせレイアウト
         </button>
 
         {showSafeArea&&(
@@ -2116,7 +2113,7 @@ function PaletteStory() {
               style={{height:34,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <span style={{fontSize:'.86rem',lineHeight:1}}>💡</span> Hint
             </button>
-            <button aria-label="Reset" onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});setFreeTexts([]);setSelectedTextId(null);setEditingGalleryId(null);setPhotoOffsetX(0);setPhotoOffsetY(0);}}}
+            <button aria-label="Reset" onClick={(e)=>{e.stopPropagation();if(window.confirm('はじめに戻ります。現在の編集内容は消えます。よろしいですか？')){setImg(null);setPixels([]);setColors([]);setBgColor('#F7F3FA');setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');setPhotoFrameWidth(9);setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});setFreeTexts([]);setSelectedTextId(null);setEditingGalleryId(null);setPhotoOffsetX(0);setPhotoOffsetY(0);}}}
               style={{height:34,padding:'0 9px',display:'inline-flex',alignItems:'center',gap:5,background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',fontSize:'.66rem',fontWeight:900,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <span style={{fontSize:'1rem',fontWeight:900,lineHeight:1}}>↺</span> Reset
             </button>
@@ -2179,6 +2176,13 @@ function PaletteStory() {
                       <SBtn active={photoFrame==='none'} onClick={()=>setPhotoFrame('none')}>None</SBtn>
                       <SBtn active={photoFrame==='white'} onClick={()=>setPhotoFrame('white')}>White Frame</SBtn>
                     </div>
+                    {photoFrame==='white'&&(<>
+                    <Lbl t="Frame Width" sub="白ふちの太さ"/>
+                    <div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>{photoFrameWidth}px</span>
+                      <input type="range" min={2} max={28} value={photoFrameWidth} onInput={e=>setPhotoFrameWidth(Number(e.target.value))} onChange={e=>setPhotoFrameWidth(Number(e.target.value))} onTouchEnd={dblTapReset('photoFrameWidth',()=>setPhotoFrameWidth(9))} style={{flex:1}}/>
+                    </div>
+                    </>)}
                     <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                       <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {photoOffsetX>0?`+${photoOffsetX}`:photoOffsetX}</span>
@@ -2511,7 +2515,6 @@ function PaletteStory() {
                 ['*','Body','本文・日付などを入力、間隔も調整できる'],
                 ['*','Text+','自由な位置にテキストを追加。ドラッグで移動（中央に近づくとガイド線でピタッと揃う）、2本指で回転・拡大縮小、「中央に配置」ボタンでも置ける'],
                 ['*','Save','画像を保存'],
-                ['*','おまかせレイアウト','プレビュー左上のボタンで5種類のレイアウトを順番に試せる（写真・色・文字はそのまま）'],
                 ['*','安全エリア表示','プレビュー右上のボタンでON/OFF。Instagramのプロフィール名や返信欄で隠れやすい範囲を表示（保存画像には出ません）'],
                 ['*','複製','ギャラリーの作品を開いて「複製」を押すと、同じ内容のコピーを新しい作品として編集できる'],
               ].map(([emoji,label,desc])=>(
@@ -2541,7 +2544,7 @@ function PaletteStory() {
               style={{width:'100%',padding:'13px',background:'linear-gradient(135deg,#D4B3D9,#C8A8C8)',color:'#fff',border:'none',borderRadius:14,fontFamily:'inherit',fontSize:'.92rem',fontWeight:700,cursor:'pointer',boxShadow:'0 6px 16px rgba(200,168,200,.4)'}}>
               OK！
             </button>
-            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v30</div>
+            <div style={{textAlign:'center',fontSize:'.6rem',color:'#D9C7E3',marginTop:10}}>v31</div>
           </div>
         </div>
       )}
