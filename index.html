@@ -951,6 +951,231 @@ function SolidIcon({name,size=17,color='currentColor'}){
 }
 
 // ─────────────────────────────────────────────
+// GALLERY STORAGE — IndexedDB
+// ─────────────────────────────────────────────
+const GALLERY_DB_NAME='palette-story';
+const GALLERY_DB_VERSION=1;
+const GALLERY_PROJECTS_STORE='projects';
+const GALLERY_ASSETS_STORE='assets';
+const GALLERY_META_STORE='meta';
+const LEGACY_GALLERY_KEY='ps_gallery';
+const LEGACY_MIGRATION_KEY='legacy-localstorage-v1';
+
+function idbRequest(request){
+  return new Promise((resolve,reject)=>{
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error('IndexedDB request failed'));
+  });
+}
+
+function idbTransactionDone(tx){
+  return new Promise((resolve,reject)=>{
+    tx.oncomplete=()=>resolve();
+    tx.onabort=()=>reject(tx.error||new Error('IndexedDB transaction aborted'));
+    tx.onerror=()=>reject(tx.error||new Error('IndexedDB transaction failed'));
+  });
+}
+
+function openGalleryDB(){
+  return new Promise((resolve,reject)=>{
+    if(!window.indexedDB){
+      reject(new Error('IndexedDB is not available'));
+      return;
+    }
+    const request=indexedDB.open(GALLERY_DB_NAME,GALLERY_DB_VERSION);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains(GALLERY_PROJECTS_STORE)){
+        db.createObjectStore(GALLERY_PROJECTS_STORE,{keyPath:'id'});
+      }
+      if(!db.objectStoreNames.contains(GALLERY_ASSETS_STORE)){
+        const assets=db.createObjectStore(GALLERY_ASSETS_STORE,{keyPath:'id'});
+        assets.createIndex('projectId','projectId',{unique:false});
+      }
+      if(!db.objectStoreNames.contains(GALLERY_META_STORE)){
+        db.createObjectStore(GALLERY_META_STORE,{keyPath:'key'});
+      }
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error('IndexedDB could not be opened'));
+    request.onblocked=()=>reject(new Error('IndexedDB upgrade was blocked'));
+  });
+}
+
+async function resourceToBlob(src){
+  if(!src) return null;
+  const response=await fetch(src);
+  if(!response.ok) throw new Error('Image data could not be read');
+  return response.blob();
+}
+
+function projectRecordFromEntry(entry,position){
+  const editState=entry.editState||null;
+  let storedEditState=editState;
+  if(editState){
+    const {imageSrc,...withoutImage}=editState;
+    storedEditState=withoutImage;
+  }
+  return {
+    id:entry.id,
+    date:entry.date,
+    createdAt:entry.createdAt||entry.id||Date.now(),
+    updatedAt:entry.updatedAt||Date.now(),
+    position,
+    schemaVersion:1,
+    editState:storedEditState,
+  };
+}
+
+async function assetsFromEntry(entry){
+  const sourceSrc=entry.editState?.imageSrc||null;
+  const [sourceBlob,thumbnailBlob]=await Promise.all([
+    resourceToBlob(sourceSrc),
+    resourceToBlob(entry.thumbUrl),
+  ]);
+  return {
+    source:sourceBlob?{id:`${entry.id}:source`,projectId:entry.id,type:'source',blob:sourceBlob}:null,
+    thumbnail:thumbnailBlob?{id:`${entry.id}:thumbnail`,projectId:entry.id,type:'thumbnail',blob:thumbnailBlob}:null,
+  };
+}
+
+async function persistGallerySnapshot(entries,changedEntry=null,removedIds=[]){
+  const preparedAssets=changedEntry?await assetsFromEntry(changedEntry):null;
+  const db=await openGalleryDB();
+  try{
+    const tx=db.transaction([GALLERY_PROJECTS_STORE,GALLERY_ASSETS_STORE],'readwrite');
+    const done=idbTransactionDone(tx);
+    const projects=tx.objectStore(GALLERY_PROJECTS_STORE);
+    const assets=tx.objectStore(GALLERY_ASSETS_STORE);
+    entries.forEach((entry,index)=>projects.put(projectRecordFromEntry(entry,index)));
+    if(preparedAssets?.source) assets.put(preparedAssets.source);
+    if(preparedAssets?.thumbnail) assets.put(preparedAssets.thumbnail);
+    removedIds.forEach(id=>{
+      projects.delete(id);
+      assets.delete(`${id}:source`);
+      assets.delete(`${id}:thumbnail`);
+    });
+    await done;
+  }finally{
+    db.close();
+  }
+}
+
+async function deleteGalleryEntryFromDB(id){
+  const db=await openGalleryDB();
+  try{
+    const tx=db.transaction([GALLERY_PROJECTS_STORE,GALLERY_ASSETS_STORE],'readwrite');
+    const done=idbTransactionDone(tx);
+    tx.objectStore(GALLERY_PROJECTS_STORE).delete(id);
+    tx.objectStore(GALLERY_ASSETS_STORE).delete(`${id}:source`);
+    tx.objectStore(GALLERY_ASSETS_STORE).delete(`${id}:thumbnail`);
+    await done;
+  }finally{
+    db.close();
+  }
+}
+
+async function loadGalleryFromDB(){
+  const db=await openGalleryDB();
+  try{
+    const tx=db.transaction([GALLERY_PROJECTS_STORE,GALLERY_ASSETS_STORE],'readonly');
+    const done=idbTransactionDone(tx);
+    const [projects,assets]=await Promise.all([
+      idbRequest(tx.objectStore(GALLERY_PROJECTS_STORE).getAll()),
+      idbRequest(tx.objectStore(GALLERY_ASSETS_STORE).getAll()),
+    ]);
+    await done;
+    const assetMap=new Map(assets.map(asset=>[asset.id,asset]));
+    const objectUrls=[];
+    const items=projects
+      .sort((a,b)=>(a.position??9999)-(b.position??9999))
+      .map(project=>{
+        const sourceBlob=assetMap.get(`${project.id}:source`)?.blob||null;
+        const thumbnailBlob=assetMap.get(`${project.id}:thumbnail`)?.blob||null;
+        const sourceUrl=sourceBlob?URL.createObjectURL(sourceBlob):null;
+        const thumbUrl=thumbnailBlob?URL.createObjectURL(thumbnailBlob):sourceUrl;
+        if(sourceUrl)objectUrls.push(sourceUrl);
+        if(thumbUrl&&thumbUrl!==sourceUrl)objectUrls.push(thumbUrl);
+        return {
+          id:project.id,
+          date:project.date,
+          createdAt:project.createdAt,
+          updatedAt:project.updatedAt,
+          dataUrl:null,
+          thumbUrl,
+          editState:project.editState?{...project.editState,imageSrc:sourceUrl}:null,
+        };
+      });
+    return {items,objectUrls};
+  }finally{
+    db.close();
+  }
+}
+
+async function migrateLegacyGallery(){
+  const db=await openGalleryDB();
+  try{
+    const checkTx=db.transaction(GALLERY_META_STORE,'readonly');
+    const checkDone=idbTransactionDone(checkTx);
+    const previous=await idbRequest(checkTx.objectStore(GALLERY_META_STORE).get(LEGACY_MIGRATION_KEY));
+    await checkDone;
+    if(previous) return {...previous,alreadyProcessed:true};
+
+    let legacy=[];
+    try{
+      const raw=localStorage.getItem(LEGACY_GALLERY_KEY);
+      legacy=raw?JSON.parse(raw):[];
+      if(!Array.isArray(legacy)) legacy=[];
+    }catch{
+      const result={key:LEGACY_MIGRATION_KEY,status:'failed',total:0,migrated:0,failed:1,finishedAt:Date.now()};
+      const tx=db.transaction(GALLERY_META_STORE,'readwrite');
+      const done=idbTransactionDone(tx);
+      tx.objectStore(GALLERY_META_STORE).put(result);
+      await done;
+      return result;
+    }
+
+    const candidates=legacy.slice(0,24);
+    const prepared=[];
+    let failed=0;
+    for(let i=0;i<candidates.length;i++){
+      const entry=candidates[i];
+      if(!entry||entry.id==null){failed++;continue;}
+      try{
+        const entryAssets=await assetsFromEntry(entry);
+        prepared.push({entry,position:i,assets:entryAssets});
+      }catch{
+        failed++;
+      }
+    }
+
+    const result={
+      key:LEGACY_MIGRATION_KEY,
+      status:failed?'partial':'complete',
+      total:candidates.length,
+      migrated:prepared.length,
+      failed,
+      finishedAt:Date.now(),
+    };
+    const tx=db.transaction([GALLERY_PROJECTS_STORE,GALLERY_ASSETS_STORE,GALLERY_META_STORE],'readwrite');
+    const done=idbTransactionDone(tx);
+    const projects=tx.objectStore(GALLERY_PROJECTS_STORE);
+    const assets=tx.objectStore(GALLERY_ASSETS_STORE);
+    prepared.forEach(item=>{
+      projects.put(projectRecordFromEntry(item.entry,item.position));
+      if(item.assets.source) assets.put(item.assets.source);
+      if(item.assets.thumbnail) assets.put(item.assets.thumbnail);
+    });
+    tx.objectStore(GALLERY_META_STORE).put(result);
+    await done;
+    // 旧localStorageは移行確認・ロールバック用として意図的に削除しない。
+    return result;
+  }finally{
+    db.close();
+  }
+}
+
+// ─────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────
 function PaletteStory() {
@@ -998,10 +1223,7 @@ function PaletteStory() {
   const [showFullPreview,setShowFullPreview]=useState(false);
   const [showSave,setShowSave]=useState(null);
   const [showGallery,setShowGallery]=useState(true); // 起動時はギャラリー表示
-  const [gallery,setGallery]=useState(()=>{
-    try{const g=localStorage.getItem('ps_gallery');return g?JSON.parse(g):[];}
-    catch{return [];}
-  });
+  const [gallery,setGallery]=useState([]);
   const [showHowTo,setShowHowTo]=useState(false);
   const [showSafeArea,setShowSafeArea]=useState(false); // Instagramストーリーズ用の安全エリア表示（編集画面だけ・保存画像には出さない）
   const [layoutIndex,setLayoutIndex]=useState(-1); // おまかせレイアウト：今何番目を適用中か（-1=未適用）
@@ -1009,12 +1231,43 @@ function PaletteStory() {
   const [editingGalleryId,setEditingGalleryId]=useState(null); // ギャラリーの既存作品を編集中ならそのid
   const [showSaveChoice,setShowSaveChoice]=useState(false); // 上書き/新規保存の選択モーダル
   const [toast,setToast]=useState(null); // 一瞬だけ出す通知
+  const [toastError,setToastError]=useState(false);
   const toastTimerRef=useRef(null);
-  const showToast=(msg)=>{
+  const galleryObjectUrlsRef=useRef([]);
+  const showToast=(msg,isError=false)=>{
     setToast(msg);
+    setToastError(isError);
     if(toastTimerRef.current) clearTimeout(toastTimerRef.current);
     toastTimerRef.current=setTimeout(()=>setToast(null),1800);
   };
+  useEffect(()=>{
+    let cancelled=false;
+    (async()=>{
+      try{
+        const migration=await migrateLegacyGallery();
+        const loaded=await loadGalleryFromDB();
+        if(cancelled){
+          loaded.objectUrls.forEach(url=>URL.revokeObjectURL(url));
+          return;
+        }
+        galleryObjectUrlsRef.current=loaded.objectUrls;
+        setGallery(loaded.items);
+        if(!migration.alreadyProcessed&&migration.status==='partial'){
+          showToast(`既存作品${migration.migrated}件を移行しました（${migration.failed}件は移行できませんでした）`,true);
+        }else if(!migration.alreadyProcessed&&migration.status==='failed'){
+          showToast('既存作品を移行できませんでした',true);
+        }
+      }catch(err){
+        console.warn('gallery load failed',err);
+        if(!cancelled) showToast('ギャラリーを読み込めませんでした',true);
+      }
+    })();
+    return()=>{
+      cancelled=true;
+      galleryObjectUrlsRef.current.forEach(url=>URL.revokeObjectURL(url));
+      galleryObjectUrlsRef.current=[];
+    };
+  },[]);
   const viewTransform=useRef({scale:1,x:0,y:0,lastDist:0,lastX:0,lastY:0,pinching:false,dragging:false});
   const [viewScale,setViewScale]=useState(1);
   const [viewOffset,setViewOffset]=useState({x:0,y:0});
@@ -1668,45 +1921,53 @@ function PaletteStory() {
   // ── save (iPhone Safari対応) ──
   // ギャラリーへの保存だけを行う（共有ダイアログは出さない）。ホームボタンからの自動保存用にも使う
   // mode: 'new'=常に新規追加, 'overwrite'=編集元があればそれを上書き, 未指定=編集元があれば自動で上書き
-  const saveSnapshotToGallery=(mode)=>{
+  const saveSnapshotToGallery=async(mode)=>{
     if(!img) return null; // 何も編集していない状態では保存しない
-    const sv=document.createElement('canvas');
-    sv.width=OUT_W; sv.height=OUT_H;
-    const ctx=sv.getContext('2d');
-    ctx.scale(SCALE,SCALE);
-    // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
-    ctx.drawImage(previewRef.current,0,0,CW*RENDER_SCALE,CH*RENDER_SCALE,0,0,CW,CH);
-    const dataUrl = sv.toDataURL('image/png');
-    // ギャラリーに保存（サムネイル用に小さく）
-    const thumb = document.createElement('canvas');
-    thumb.width=240;thumb.height=426;
-    thumb.getContext('2d').drawImage(sv,0,0,OUT_W,OUT_H,0,0,240,426);
-    const thumbUrl = thumb.toDataURL('image/jpeg',0.85);
-    const useMode = mode || (editingGalleryId ? 'overwrite' : 'new');
-    const entry = {
-      id: (useMode==='overwrite' && editingGalleryId) ? editingGalleryId : Date.now(),
-      date:new Date().toLocaleDateString('ja-JP'), dataUrl, thumbUrl, editState:createEditState()
-    };
-    setGallery(prev=>{
+    try{
+      const sv=document.createElement('canvas');
+      sv.width=OUT_W; sv.height=OUT_H;
+      const ctx=sv.getContext('2d');
+      ctx.scale(SCALE,SCALE);
+      // previewRefは2倍canvasなのでそのまま描画（SCALE=OUT_W/CW）
+      ctx.drawImage(previewRef.current,0,0,CW*RENDER_SCALE,CH*RENDER_SCALE,0,0,CW,CH);
+      const dataUrl = sv.toDataURL('image/png');
+      // ギャラリーに保存（サムネイル用に小さく）
+      const thumb = document.createElement('canvas');
+      thumb.width=240;thumb.height=426;
+      thumb.getContext('2d').drawImage(sv,0,0,OUT_W,OUT_H,0,0,240,426);
+      const thumbUrl = thumb.toDataURL('image/jpeg',0.85);
+      const useMode = mode || (editingGalleryId ? 'overwrite' : 'new');
+      const existing=(useMode==='overwrite'&&editingGalleryId)?gallery.find(g=>g.id===editingGalleryId):null;
+      const isOverwrite=!!existing;
+      const entry = {
+        id:isOverwrite?editingGalleryId:Date.now(),
+        date:new Date().toLocaleDateString('ja-JP'),
+        createdAt:existing?.createdAt||Date.now(),
+        updatedAt:Date.now(),
+        dataUrl,
+        thumbUrl,
+        editState:createEditState(),
+      };
       let next;
-      if(useMode==='overwrite' && editingGalleryId){
-        next = prev.map(g=>g.id===editingGalleryId?entry:g);
+      if(isOverwrite){
+        next = gallery.map(g=>g.id===editingGalleryId?entry:g);
       } else {
-        next=[entry,...prev].slice(0,24); // 最大24件
+        next=[entry,...gallery].slice(0,24); // 最大24件
       }
-      // localStorageは容量制限が厳しいので、重いdataUrl(高解像度画像)は保存せず
-      // サムネイルと編集内容だけを保存する。メモリ上のnextにはdataUrlを残す（このセッション中は使える）
-      try{
-        const lite=next.map(({dataUrl,...rest})=>rest);
-        localStorage.setItem('ps_gallery',JSON.stringify(lite));
-      }catch{}
-      return next;
-    });
-    setEditingGalleryId(entry.id); // 以降はこの作品として追跡する
-    return dataUrl;
+      const nextIds=new Set(next.map(g=>g.id));
+      const removedIds=gallery.filter(g=>!nextIds.has(g.id)).map(g=>g.id);
+      await persistGallerySnapshot(next,entry,removedIds);
+      setGallery(next);
+      setEditingGalleryId(entry.id); // 以降はこの作品として追跡する
+      return dataUrl;
+    }catch(err){
+      console.warn('gallery save failed',err);
+      showToast('保存できませんでした。ブラウザの保存容量をご確認ください',true);
+      return null;
+    }
   };
-  const save=(mode)=>{
-    const dataUrl=saveSnapshotToGallery(mode);
+  const save=async(mode)=>{
+    const dataUrl=await saveSnapshotToGallery(mode);
     if(dataUrl) shareImage(dataUrl);
   };
 
@@ -1740,7 +2001,7 @@ function PaletteStory() {
     <div style={{background:'linear-gradient(180deg,#FBF8FF 0%,#F4EEF9 52%,#FDFBFF 100%)',fontFamily:"'DM Sans','Plus Jakarta Sans',sans-serif",height:'var(--app-height,100dvh)',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden'}}>
       {toast&&(
         <div style={{position:'fixed',top:16,left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'rgba(61,68,88,.92)',color:'#fff',padding:'10px 18px',borderRadius:20,fontSize:'.78rem',fontWeight:600,boxShadow:'0 8px 20px rgba(0,0,0,.2)',pointerEvents:'none',whiteSpace:'nowrap'}}>
-          ✓ {toast}
+          {toastError?'!':'✓'} {toast}
         </div>
       )}
       <div style={{padding:'16px 20px 12px',background:'#fff',borderBottom:'1px solid #E7DDEA',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
@@ -1788,7 +2049,7 @@ function PaletteStory() {
             {galleryPreview.editState&&(
               <button onClick={()=>{restoreEditState(galleryPreview.editState);setEditingGalleryId(galleryPreview.id);setGalleryPreview(null);setShowGallery(false);}} style={{padding:'11px',border:'none',borderRadius:4,background:'#fff',color:'#3D4458',fontFamily:'inherit',fontWeight:700}}>編集</button>
             )}
-            <button onClick={()=>{
+            <button onClick={async()=>{
               if(galleryPreview.dataUrl){ shareImage(galleryPreview.dataUrl); return; }
               // 前回のセッションからの読み込みでdataUrlが無い場合は、編集内容から画質そのままで作り直してから保存する
               if(galleryPreview.editState){
@@ -1796,42 +2057,49 @@ function PaletteStory() {
                 restoreEditState(galleryPreview.editState);
                 setEditingGalleryId(gid);
                 setGalleryPreview(null);
-                setTimeout(()=>{
-                  const fresh=saveSnapshotToGallery('overwrite');
+                setTimeout(async()=>{
+                  const fresh=await saveSnapshotToGallery('overwrite');
                   if(fresh) shareImage(fresh);
                 },260);
               }
             }} style={{padding:'11px',border:'none',borderRadius:4,background:'#C8A8C8',color:'#fff',fontFamily:'inherit',fontWeight:700}}>保存</button>
             {galleryPreview.editState&&(
-              <button onClick={()=>{
+              <button onClick={async()=>{
                 const newId=Date.now();
-                const newEntry={...galleryPreview,id:newId,date:new Date().toLocaleDateString('ja-JP')};
-                setGallery(prev=>{
-                  const next=[newEntry,...prev].slice(0,24);
-                  try{
-                    const lite=next.map(({dataUrl,...rest})=>rest);
-                    localStorage.setItem('ps_gallery',JSON.stringify(lite));
-                  }catch{}
-                  return next;
-                });
-                restoreEditState(newEntry.editState);
-                setEditingGalleryId(newId);
-                setGalleryPreview(null);
-                setShowGallery(false);
-                showToast('複製しました');
+                const newEntry={
+                  ...galleryPreview,
+                  id:newId,
+                  date:new Date().toLocaleDateString('ja-JP'),
+                  createdAt:newId,
+                  updatedAt:newId,
+                };
+                const next=[newEntry,...gallery].slice(0,24);
+                const nextIds=new Set(next.map(g=>g.id));
+                const removedIds=gallery.filter(g=>!nextIds.has(g.id)).map(g=>g.id);
+                try{
+                  await persistGallerySnapshot(next,newEntry,removedIds);
+                  setGallery(next);
+                  restoreEditState(newEntry.editState);
+                  setEditingGalleryId(newId);
+                  setGalleryPreview(null);
+                  setShowGallery(false);
+                  showToast('複製しました');
+                }catch(err){
+                  console.warn('gallery duplicate failed',err);
+                  showToast('複製できませんでした。ブラウザの保存容量をご確認ください',true);
+                }
               }} style={{padding:'11px',border:'none',borderRadius:4,background:'#fff',color:'#3D4458',fontFamily:'inherit',fontWeight:700}}>複製</button>
             )}
-            <button onClick={()=>{
+            <button onClick={async()=>{
               if(!window.confirm('この作品をギャラリーから削除しますか？')) return;
-              setGallery(prev=>{
-                const next=prev.filter(g=>g.id!==galleryPreview.id);
-                try{
-                  const lite=next.map(({dataUrl,...rest})=>rest);
-                  localStorage.setItem('ps_gallery',JSON.stringify(lite));
-                }catch{}
-                return next;
-              });
-              setGalleryPreview(null);
+              try{
+                await deleteGalleryEntryFromDB(galleryPreview.id);
+                setGallery(prev=>prev.filter(g=>g.id!==galleryPreview.id));
+                setGalleryPreview(null);
+              }catch(err){
+                console.warn('gallery delete failed',err);
+                showToast('削除できませんでした。もう一度お試しください',true);
+              }
             }} style={{padding:'11px',border:'none',borderRadius:4,background:'rgba(255,255,255,.18)',color:'#fff',fontFamily:'inherit',fontWeight:700,gridColumn:galleryPreview.editState?'span 1':'auto'}}>削除</button>
           </div>
         </div>
@@ -1860,7 +2128,7 @@ function PaletteStory() {
 
       {toast&&(
         <div style={{position:'fixed',top:70,left:'50%',transform:'translateX(-50%)',zIndex:9999,background:'rgba(61,68,88,.92)',color:'#fff',padding:'10px 18px',borderRadius:20,fontSize:'.78rem',fontWeight:600,boxShadow:'0 8px 20px rgba(0,0,0,.2)',pointerEvents:'none',whiteSpace:'nowrap'}}>
-          ✓ {toast}
+          {toastError?'!':'✓'} {toast}
         </div>
       )}
 
@@ -2105,7 +2373,7 @@ function PaletteStory() {
             palette story.
           </span>
           <div style={{display:'flex',flexWrap:'wrap',gap:5,justifyContent:'flex-end',pointerEvents:'auto',alignItems:'center',maxWidth:'72%'}}>
-            <button aria-label="Home" onClick={(e)=>{e.stopPropagation();const saved=saveSnapshotToGallery();showToast(saved?'プロジェクトを保存しました':'保存する内容がありません');setShowGallery(true);}}
+            <button aria-label="Home" onClick={async(e)=>{e.stopPropagation();if(!img){showToast('保存する内容がありません');setShowGallery(true);return;}const saved=await saveSnapshotToGallery();if(saved)showToast('プロジェクトを保存しました');setShowGallery(true);}}
               style={{width:32,height:32,display:'grid',placeItems:'center',background:'rgba(255,255,255,.92)',color:'#3D4458',border:'1px solid rgba(231,221,234,.9)',borderRadius:3,fontFamily:'inherit',cursor:'pointer',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               <SolidIcon name="home" size={15}/>
             </button>
