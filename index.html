@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>palette story. v1.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&family=Dancing+Script&family=Sriracha&family=Sacramento&family=Homemade+Apple&family=Pacifico&family=Covered+By+Your+Grace&family=RocknRoll+One&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Murecho&family=M+PLUS+1p&family=Yomogi&family=Kiwi+Maru&family=Darumadrop+One&family=Kosugi+Maru&family=Kosugi&family=M+PLUS+Rounded+1c&display=swap" rel="stylesheet">
 <style>
 :root{
   --ui-bg:#FCFAFF;
@@ -18,7 +22,10 @@
   --ui-icon:#756D89;
   --ui-ink:#4A4258;
   --ui-muted:#786F87;
-  --ui-logo:#45394F;
+  --ui-logo:#5F5670;
+  --ui-auth-copy:#958DA0;
+  --ui-auth-button-ink:#70667D;
+  --ui-auth-placeholder:#B2ABB9;
   --ui-border:#E8E0F0;
   --ui-border-active:#CDB9F2;
   --ui-toolbar-bg:rgba(252,250,255,.94);
@@ -35,7 +42,29 @@ body{position:fixed;inset:0;}
 #root{height:var(--app-height,100dvh);position:fixed;left:0;right:0;top:var(--app-top,0px);overflow:hidden;touch-action:pan-x pan-y;}
 canvas{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 input,select,textarea{touch-action:manipulation;}
-input[type=range]{touch-action:pan-x;}
+input[type=range]{touch-action:pan-y;transition:none!important;}
+input[type=range]::-webkit-slider-thumb,
+input[type=range]::-webkit-slider-runnable-track,
+input[type=range]::-moz-range-thumb,
+input[type=range]::-moz-range-track{transition:none!important;}
+.access-gate{height:100%;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--ui-bg);overflow:auto;-webkit-overflow-scrolling:touch;font-family:"DM Sans","Noto Sans JP","Helvetica Neue",Arial,sans-serif;}
+.access-card{width:min(100%,390px);padding:34px 28px 30px;background:var(--ui-panel);border:1px solid var(--ui-border);border-radius:24px;box-shadow:0 12px 34px rgba(70,60,90,.08);}
+.access-logo{margin:0 0 28px;color:var(--ui-logo);font-family:"Manrope","DM Sans",sans-serif;font-size:1.35rem;font-weight:700;letter-spacing:.025em;}
+.access-thanks{margin:0 0 12px;color:var(--ui-accent-deep);font-size:1.16rem;font-weight:700;line-height:1.55;}
+.access-copy{margin:0 0 22px;color:var(--ui-auth-copy);line-height:1.65;}
+.access-copy-en,.access-copy-ja{display:block;}
+.access-copy-en{font-size:.84rem;margin-bottom:3px;}
+.access-copy-ja{font-size:.8rem;}
+.access-field{display:block;width:100%;height:50px;padding:0 15px;border:1.5px solid var(--ui-border);border-radius:12px;background:#fff;color:var(--ui-ink);font:inherit;font-size:1rem;outline:none;box-shadow:inset 0 1px 2px rgba(70,60,90,.025);}
+.access-field:focus{border-color:var(--ui-border-active);box-shadow:0 0 0 3px var(--ui-accent-soft);}
+.access-field::placeholder{color:var(--ui-auth-placeholder);opacity:1;}
+.access-field[aria-invalid="true"]{border-color:#C98B9D;}
+.access-error{min-height:24px;padding:6px 2px 0;color:#A75F75;font-size:.78rem;line-height:1.4;}
+.access-submit{width:100%;min-height:50px;margin-top:10px;border:1px solid var(--ui-save-border);border-radius:14px;background:var(--ui-save-bg);color:var(--ui-auth-button-ink);font:inherit;font-size:.95rem;font-weight:500;cursor:pointer;}
+@media(max-width:420px){
+  .access-gate{padding:20px;align-items:center;}
+  .access-card{padding:30px 22px 26px;border-radius:22px;}
+}
 @media (prefers-reduced-motion:reduce){
   button{transition:none!important;}
   button:not(:disabled):active{transform:none;}
@@ -51,6 +80,84 @@ input[type=range]{touch-action:pan-x;}
 const {useState,useRef,useEffect,useLayoutEffect,useCallback,useMemo}=React;
 </script>
 <script type="text/babel">
+// 購入者向け簡易アクセスゲート。公開前に password の1行だけを変更してください。
+const PURCHASER_ACCESS = Object.freeze({
+  password: 'psv1-mpi',
+  storageKey: 'palette-story-purchaser-access-v1',
+});
+
+function createAccessMarker(password) {
+  let hash = 2166136261;
+  const source = `palette-story-access:${password}`;
+  for (let i = 0; i < source.length; i += 1) {
+    hash ^= source.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `v1-${(hash >>> 0).toString(16)}`;
+}
+
+function PurchaserAccessGate() {
+  const expectedMarker = useMemo(() => createAccessMarker(PURCHASER_ACCESS.password), []);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return localStorage.getItem(PURCHASER_ACCESS.storageKey) === expectedMarker;
+    } catch (_error) {
+      return false;
+    }
+  });
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  if (isAuthenticated) return <PaletteStory/>;
+
+  const submitPassword = event => {
+    event.preventDefault();
+    if (password !== PURCHASER_ACCESS.password) {
+      setError('パスワードが違います');
+      setPassword('');
+      return;
+    }
+    try {
+      localStorage.setItem(PURCHASER_ACCESS.storageKey, expectedMarker);
+    } catch (_error) {
+      // 保存が利用できない環境でも、このタブでは続けて利用できます。
+    }
+    setPassword('');
+    setError('');
+    setIsAuthenticated(true);
+  };
+
+  return (
+    <main className="access-gate">
+      <section className="access-card" aria-labelledby="access-title">
+        <h1 className="access-logo" id="access-title">palette story.</h1>
+        <p className="access-thanks">Welcome♡</p>
+        <p className="access-copy">
+          <span className="access-copy-en">Please enter your password.</span>
+          <span className="access-copy-ja">パスワードを入力してください。</span>
+        </p>
+        <form onSubmit={submitPassword} noValidate>
+          <input
+            className="access-field"
+            type="password"
+            value={password}
+            onChange={event => { setPassword(event.target.value); if (error) setError(''); }}
+            placeholder="パスワード"
+            aria-label="パスワード"
+            aria-invalid={Boolean(error)}
+            aria-describedby="access-error"
+            autoComplete="current-password"
+            autoCapitalize="none"
+            spellCheck="false"
+          />
+          <p className="access-error" id="access-error" role="alert">{error}</p>
+          <button className="access-submit" type="submit">はじめる</button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
 const FONTS = [
   { label: "── English ──", value: null, disabled: true },
   { label: "Playfair Display", value: "'Playfair Display', serif" },
@@ -84,7 +191,77 @@ const FONTS = [
   { label: "M PLUS Rounded 1c", value: "'M PLUS Rounded 1c', sans-serif" },
 ];
 
-function FontPicker({value, onChange}) {
+// Google Fontsで実際に読み込んでいる最大ウェイトへ揃える。
+// 実データのない700をSVGへ渡すと、iOS Safariで強い疑似太字になり
+// Canvas描画（編集・保存）とPreviewの字形が変わるため、全描画で共通利用する。
+function getArtworkFontWeight(font,bold){
+  if(!bold)return 400;
+  const family=String(font||'');
+  if(/Playfair Display|Courier Prime/i.test(family))return 700;
+  if(/Caveat|Shippori Mincho|Zen Old Mincho/i.test(family))return 600;
+  if(/EB Garamond|DM Sans|Zen Maru Gothic|Zen Kaku Gothic New|Noto Sans JP/i.test(family))return 500;
+  return 400;
+}
+
+// 読込結果はTitle／Body／Text+で共有し、同じ実文字列を重複取得しない。
+// stateへ反映する前にこのPromiseを待つことで、Canvasへ代替フォントを描画しない。
+const artworkFontLoadCache=new Map();
+function getPrimaryFontFamily(font){
+  return String(font||'').split(',')[0].trim();
+}
+function normalizeArtworkFontText(text){
+  // Title／Body／各Text+の実文字列を、文字順を変えずそのままFontFaceSetへ渡す。
+  // 改行・タブだけはCSS Font Loading APIの判定用に空白へ揃える。
+  const normalized=String(text||'').normalize('NFC').replace(/[\r\n\t]+/g,' ');
+  return normalized||'A';
+}
+function hasRegisteredArtworkFont(family){
+  const expected=String(family||'').replace(/^['"]|['"]$/g,'').toLowerCase();
+  return Array.from(document.fonts||[]).some(face=>
+    String(face.family||'').replace(/^['"]|['"]$/g,'').toLowerCase()===expected
+  );
+}
+function ensureArtworkFontSpecLoaded(weight,font,text=''){
+  if(!font||!document.fonts)return Promise.resolve(true);
+  const family=getPrimaryFontFamily(font);
+  const sample=normalizeArtworkFontText(text);
+  const spec=`${weight} 32px ${family}`;
+  const cacheKey=`${spec}::${sample}`;
+  if(hasRegisteredArtworkFont(family)&&document.fonts.check(spec,sample))return Promise.resolve(true);
+  if(artworkFontLoadCache.has(cacheKey))return artworkFontLoadCache.get(cacheKey);
+  const request=document.fonts.load(spec,sample)
+    .then(faces=>faces.length>0&&document.fonts.check(spec,sample))
+    .catch(()=>false)
+    .then(loaded=>{
+      if(!loaded)artworkFontLoadCache.delete(cacheKey);
+      return loaded;
+    });
+  artworkFontLoadCache.set(cacheKey,request);
+  return request;
+}
+function ensureArtworkFontLoaded(font,bold,text=''){
+  return ensureArtworkFontSpecLoaded(getArtworkFontWeight(font,bold===true),font,text);
+}
+function collectArtworkFontUsages(source){
+  const usages=[];
+  const add=(font,bold,text)=>{
+    if(!font||!String(text||'').trim())return;
+    const weight=getArtworkFontWeight(font,bold===true);
+    usages.push({font,weight,text:String(text)});
+  };
+  add(source.titleFont,source.titleBold,source.titleTxt);
+  add(source.bodyFont,source.bodyBold,source.bodyTxt);
+  (source.freeTexts||[]).forEach(text=>add(text.font,text.bold,text.text));
+  return usages.sort((a,b)=>`${a.weight}:${a.font}:${a.text}`.localeCompare(`${b.weight}:${b.font}:${b.text}`));
+}
+async function ensureArtworkFontUsagesLoaded(usages){
+  const results=await Promise.all((usages||[]).map(usage=>
+    ensureArtworkFontSpecLoaded(usage.weight,usage.font,usage.text)
+  ));
+  return results.every(Boolean);
+}
+
+function FontPicker({value, pendingValue, onChange}) {
   const [open,setOpen]=useState(false);
   const current = FONTS.find(f=>f.value===value);
   const selectedRef=useRef(null);
@@ -107,8 +284,8 @@ function FontPicker({value, onChange}) {
             {FONTS.map((f,i)=> f.disabled ? (
               <div key={i} style={{padding:'7px 10px',fontSize:'.62rem',color:'#B0A8BE',letterSpacing:'.06em',background:'#FBF7FD'}}>{f.label}</div>
             ) : (
-              <div key={i} ref={value===f.value?selectedRef:null} onClick={()=>{onChange(f.value);setOpen(false);}}
-                style={{padding:'9px 10px',fontFamily:f.value,fontSize:'1rem',color: value===f.value?'#3D4458':'#4A4A55',background:value===f.value?'#F3EBF8':'#fff',cursor:'pointer'}}>{f.label}</div>
+              <div key={i} data-undo-ignore="true" ref={value===f.value?selectedRef:null} onClick={()=>onChange(f.value)}
+                style={{padding:'9px 10px',fontFamily:f.value,fontSize:'1rem',color: value===f.value?'#3D4458':'#4A4A55',background:pendingValue===f.value?'#EDE2F7':value===f.value?'#F3EBF8':'#fff',cursor:'pointer'}}>{f.label}</div>
             ))}
           </div>
         </>
@@ -121,6 +298,9 @@ function FontPicker({value, onChange}) {
 // PHOTO SIZE PRESETS (max width ratio of canvas)
 // ─────────────────────────────────────────────
 const PHOTO_SIZES = { S: 0.60, M: 0.75, L: 0.90 };
+const TEXT_PLUS_MIN_SIZE = 11;
+const TEXT_PLUS_MAX_SIZE = 500;
+const DEFAULT_TITLE_COLOR = '#756D89';
 // 比較時だけ 'stacked' にすると「palette / story.」の2段表示になる。初期表示は1行。
 const LOGO_LAYOUT = 'single';
 
@@ -1157,10 +1337,14 @@ function drawSlimLabel(ctx, x, y, colors) {
   });
 }
 
+let freeTextMeasureContext=null;
 function measureFreeText(ft){
-  const c=document.createElement('canvas');
-  const cx=c.getContext('2d');
-  const fw=ft.bold?700:400;
+  // 当たり判定のたびに小さなCanvasを生成せず、計測専用contextを再利用する。
+  if(!freeTextMeasureContext){
+    freeTextMeasureContext=document.createElement('canvas').getContext('2d');
+  }
+  const cx=freeTextMeasureContext;
+  const fw=getArtworkFontWeight(ft.font,ft.bold);
   cx.font=`${fw} ${ft.size||28}px ${ft.font||"'Playfair Display', serif"}`;
   cx.textBaseline='middle';
   const metrics=cx.measureText(ft.text||'');
@@ -1211,6 +1395,13 @@ function hitFreeTextGesture(freeTexts,x,y,storyUnitsPerCssPixel){
     if(Math.abs(localX)<=hw&&Math.abs(localY)<=hh)return ft.id;
   }
   return null;
+}
+function isFullyTransparentColor(value){
+  const color=String(value||'').trim().toLowerCase();
+  if(!color||color==='transparent')return color==='transparent';
+  const rgba=color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\s*\)$/);
+  if(rgba)return Number(rgba[1])===0;
+  return /^#[0-9a-f]{8}$/.test(color)&&color.slice(-2)==='00';
 }
 function normalizeAngleDelta(radians){
   return Math.atan2(Math.sin(radians),Math.cos(radians));
@@ -1279,22 +1470,26 @@ const LAYOUT_PRESETS=[
 ];
 
 const CW=405, CH=720;
-const SCALE=OUT_W/CW;
 const RENDER_SCALE=4;
 const PAD=Math.round(CW*0.1);
+const EDITOR_TOOLBAR_SPACE=44;
+const EDITOR_SHEET_MAX_RATIO=.34;
 const STORY_SAFE_TOP_RATIO=0.08;
 const STORY_SAFE_BOTTOM_RATIO=0.03;
 const SAFE_AREA_VERSION=2;
 const STORY_SAFE_TOP=Math.round(CH*STORY_SAFE_TOP_RATIO);
 const STORY_SAFE_BOTTOM=Math.round(CH*STORY_SAFE_BOTTOM_RATIO);
 const STORY_SAFE_BOTTOM_Y=CH-STORY_SAFE_BOTTOM;
+const DEFAULT_PHOTO_FRAME_WIDTH=9;
+const NEW_PROJECT_GUIDE_GAP=0;
 const NEW_PROJECT_MAX_PHOTO_H=CW*PHOTO_SIZES.M*1.2;
 const NEW_PROJECT_CARD_H=getCardDims('pantone').h*0.9;
 const NEW_PROJECT_PHOTO_Y=Math.min(
-  STORY_SAFE_TOP+8,
-  Math.floor(STORY_SAFE_BOTTOM_Y-8-NEW_PROJECT_MAX_PHOTO_H-NEW_PROJECT_CARD_H*0.7)
+  STORY_SAFE_TOP+NEW_PROJECT_GUIDE_GAP,
+  Math.floor(STORY_SAFE_BOTTOM_Y-NEW_PROJECT_GUIDE_GAP-NEW_PROJECT_MAX_PHOTO_H-NEW_PROJECT_CARD_H*0.7)
 );
 const NEW_PROJECT_PHOTO_OFFSET_Y=PAD-NEW_PROJECT_PHOTO_Y;
+const getPhotoFrameOuterOffset=width=>Math.max(0,Number(width)||0);
 const DPR = typeof window!=='undefined' ? (window.devicePixelRatio||2) : 2;
 
 
@@ -1552,6 +1747,7 @@ async function migrateLegacyGallery(){
 function PaletteStory() {
   const previewRef = useRef(null);
   const canvasViewportRef=useRef(null);
+  const canvasTransformLayerRef=useRef(null);
   const fullPreviewRef=useRef(null);
   const previewViewportRef=useRef(null);
   const previewFrameRef=useRef(null);
@@ -1560,17 +1756,29 @@ function PaletteStory() {
   const previewTextDraftRef=useRef(null);
   const previewMoveRafRef=useRef(0);
   const previewViewRafRef=useRef(0);
+  const editorTextMoveRafRef=useRef(0);
+  const editorTextPatchRef=useRef(null);
+  const photoScaleRafRef=useRef(0);
+  const pendingPhotoScaleRef=useRef(null);
+  const photoPositionRafRef=useRef(0);
+  const pendingPhotoPositionRef=useRef({x:null,y:null});
+  const renderRef=useRef(null);
   const previewViewRef=useRef({
     scale:1,x:0,y:0,mode:null,startScale:1,startX:0,startY:0,
     startClientX:0,startClientY:0,startMidX:0,startMidY:0,startDist:0,
     anchorX:0,anchorY:0
   });
   const textHitRegionsRef=useRef({title:null,body:null});
+  const canvasElementHitRegionsRef=useRef({photo:null,card:null});
+  const suppressCanvasClickUntilRef=useRef(0);
   const hiddenRef  = useRef(null);
   const fileRef    = useRef(null);
   const cropCvRef  = useRef(null);
   const editorScrollRef = useRef(null);
   const focusedFieldRef = useRef(null);
+  const focusScrollTimerRef=useRef(0);
+  const viewportScrollTimerRef=useRef(0);
+  const focusClearTimerRef=useRef(0);
   const dragRef    = useRef({active:false,mode:'new',handle:null,startX:0,startY:0,c0:null});
 
   // ── state ──
@@ -1586,7 +1794,9 @@ function PaletteStory() {
   const [photoSize,setPhotoSize]= useState('M');
   const [photoScale,setPhotoScale]=useState(100); // S/M/Lを基準にした写真だけの微調整（50〜150%）
   const [photoFrame,setPhotoFrame]= useState('none');
-  const [photoFrameWidth,setPhotoFrameWidth]= useState(9); // 白ふちの太さ
+  const [photoFrameWidth,setPhotoFrameWidth]= useState(DEFAULT_PHOTO_FRAME_WIDTH); // 白ふちの太さ
+  const photoFrameWidthRef=useRef(DEFAULT_PHOTO_FRAME_WIDTH);
+  photoFrameWidthRef.current=photoFrameWidth;
   const [photoOffsetX,setPhotoOffsetX]= useState(0); // 写真の左右微調整
   const [photoOffsetY,setPhotoOffsetY]= useState(NEW_PROJECT_PHOTO_OFFSET_Y); // 写真の上下微調整
   const [fitMode,  setFitMode]  = useState('contain'); // 'contain' | 'trim'
@@ -1619,6 +1829,7 @@ function PaletteStory() {
   const [saveComplete,setSaveComplete]=useState(null); // {dataUrl,file,gallerySaved}
   const [isSaving,setIsSaving]=useState(false);
   const [showGallery,setShowGallery]=useState(true); // 起動時はギャラリー表示
+  const [canvasContentReady,setCanvasContentReady]=useState(true);
   const [gallery,setGallery]=useState([]);
   const [showHowTo,setShowHowTo]=useState(false);
   const [showSafeArea,setShowSafeArea]=useState(false); // Instagramストーリーズ用の安全エリア表示（編集画面だけ・保存画像には出さない）
@@ -1644,6 +1855,13 @@ function PaletteStory() {
   const autoSaveNeedsBaselineRef=useRef(false);
   const autoSaveSessionRef=useRef(0);
   const autoSaveFlushRef=useRef(null);
+  const saveSnapshotToGalleryRef=useRef(null);
+  const pendingFontPromisesRef=useRef(new Map());
+  const fontRequestVersionsRef=useRef(new Map());
+  const fontRequestGenerationRef=useRef(0);
+  const fontRenderRequestRef=useRef(0);
+  const awaitPendingFontChangesRef=useRef(null);
+  const [pendingFontTargets,setPendingFontTargets]=useState({});
   const autoSavePromiseRef=useRef(null);
   const autoSavePendingRef=useRef(null);
   const gallerySaveTailRef=useRef(Promise.resolve());
@@ -1702,7 +1920,8 @@ function PaletteStory() {
   const [viewOffset,setViewOffset]=useState({x:0,y:0});
   const [viewOrigin,setViewOrigin]=useState({x:50,y:50}); // ピンチ中心（%）。CSSのtransform-originに使う
   const [photoRect,setPhotoRect]=useState(null); // canvas内の写真枠の位置（CSS座標） // 保存用dataURL
-  const [canvasDisplayRect,setCanvasDisplayRect]=useState(null);
+  const [canvasFitSize,setCanvasFitSize]=useState(null);
+  const canvasFitLockRef=useRef({locked:false,viewportWidth:0});
   // canvas直接編集用
   const [titlePos,setTitlePos]=useState({snap:'left',offsetX:0,offsetY:0});   // snap: left|center|right
   const [bodyPos,setBodyPos]=useState({snap:'left',offsetX:0,offsetY:20});
@@ -1742,11 +1961,9 @@ function PaletteStory() {
     rotationSnapGuideRef.current={active,y};
     const editGuide=canvasRotationGuideRef.current;
     if(editGuide){
-      if(active&&canvasDisplayRect){
+      if(active){
         editGuide.style.display='block';
-        editGuide.style.left=`${canvasDisplayRect.left}px`;
-        editGuide.style.width=`${canvasDisplayRect.width}px`;
-        editGuide.style.top=`${canvasDisplayRect.top+(y/CH)*canvasDisplayRect.height}px`;
+        editGuide.style.top=`${(y/CH)*100}%`;
       }else editGuide.style.display='none';
     }
     const previewGuide=previewRotationGuideRef.current;
@@ -1769,10 +1986,12 @@ function PaletteStory() {
   const [bodyFont, setBodyFont] = useState("'DM Sans', sans-serif");
   const [titleSize,setTitleSize]= useState(24);
   const [bodySize, setBodySize] = useState(15);
-  const [titleColor,setTitleColor]=useState('#3D4458');
+  const [titleColor,setTitleColor]=useState(DEFAULT_TITLE_COLOR);
   const [bodyColor, setBodyColor] =useState('rgba(61,68,88,0.72)');
   const [bodyBold,  setBodyBold]  =useState(false);
   const [titleBold, setTitleBold] =useState(false);
+  const latestFontStyleRef=useRef({titleBold:false,bodyBold:false,titleTxt:'',bodyTxt:'',freeTexts:[]});
+  latestFontStyleRef.current={titleBold,bodyBold,titleTxt,bodyTxt,freeTexts};
   const [keyboardOpen,setKeyboardOpen]=useState(false);
   const [activeInputLabel,setActiveInputLabel]=useState('入力中');
 
@@ -1836,11 +2055,18 @@ function PaletteStory() {
     setSelectedTextId(null);setActiveTextId(null);
     setLayoutIndex(s.layoutIndex);
   };
-  const undoLastAction=()=>{
+  const undoLastAction=async()=>{
     if(undoApplyingRef.current||undoHistoryRef.current.length===0)return;
     undoApplyingRef.current=true;
+    const previous=undoHistoryRef.current[undoHistoryRef.current.length-1];
+    const fontsReady=await ensureArtworkFontUsagesLoaded(collectArtworkFontUsages(previous));
+    if(!fontsReady||undoHistoryRef.current[undoHistoryRef.current.length-1]!==previous){
+      undoApplyingRef.current=false;
+      if(!fontsReady)showToast('フォントを読み込めませんでした',true);
+      return;
+    }
     undoPendingRef.current=null;
-    const previous=undoHistoryRef.current.pop();
+    undoHistoryRef.current.pop();
     setUndoCount(undoHistoryRef.current.length);
     applyUndoSnapshot(previous);
     requestAnimationFrame(()=>{undoApplyingRef.current=false;});
@@ -1892,8 +2118,82 @@ function PaletteStory() {
       }
     },
   };
+  const cancelPendingFontChanges=()=>{
+    fontRequestGenerationRef.current+=1;
+    pendingFontPromisesRef.current.clear();
+    setPendingFontTargets({});
+  };
+  const cancelPendingFontTarget=(targetKey)=>{
+    fontRequestVersionsRef.current.set(targetKey,(fontRequestVersionsRef.current.get(targetKey)||0)+1);
+    pendingFontPromisesRef.current.delete(targetKey);
+    setPendingFontTargets(prev=>{
+      if(!(targetKey in prev))return prev;
+      const next={...prev};
+      delete next[targetKey];
+      return next;
+    });
+  };
+  const requestArtworkFontChange=(targetKey,nextFont,currentFont,resolveUsage,applyFont)=>{
+    if(!nextFont||nextFont===currentFont){
+      cancelPendingFontTarget(targetKey);
+      return Promise.resolve(false);
+    }
+    const version=(fontRequestVersionsRef.current.get(targetKey)||0)+1;
+    const generation=fontRequestGenerationRef.current;
+    fontRequestVersionsRef.current.set(targetKey,version);
+    setPendingFontTargets(prev=>({...prev,[targetKey]:nextFont}));
+    let request;
+    request=(async()=>{
+      let requested=resolveUsage();
+      let loaded=await ensureArtworkFontLoaded(nextFont,requested.bold,requested.text);
+      let latest=resolveUsage();
+      while(loaded&&(latest.bold!==requested.bold||latest.text!==requested.text)){
+        requested=latest;
+        loaded=await ensureArtworkFontLoaded(nextFont,requested.bold,requested.text);
+        latest=resolveUsage();
+      }
+      const isLatest=
+        fontRequestGenerationRef.current===generation&&
+        fontRequestVersionsRef.current.get(targetKey)===version;
+      if(!loaded||!isLatest){
+        if(!loaded&&isLatest)showToast('フォントを読み込めませんでした',true);
+        return false;
+      }
+      // 読み込み中の編集は現在の作品へ残し、フォント変更だけを1件のUndoにする。
+      beginUndoTransaction();
+      const expected=undoPendingRef.current;
+      applyFont(nextFont);
+      await new Promise(resolve=>requestAnimationFrame(()=>{
+        commitUndoTransaction(expected);
+        resolve();
+      }));
+      return true;
+    })().finally(()=>{
+      if(pendingFontPromisesRef.current.get(targetKey)===request){
+        pendingFontPromisesRef.current.delete(targetKey);
+      }
+      setPendingFontTargets(prev=>{
+        if(prev[targetKey]!==nextFont||fontRequestVersionsRef.current.get(targetKey)!==version)return prev;
+        const next={...prev};
+        delete next[targetKey];
+        return next;
+      });
+    });
+    pendingFontPromisesRef.current.set(targetKey,request);
+    return request;
+  };
+  const awaitPendingFontChanges=async()=>{
+    // 待機中にさらに選択された場合も、最後の選択が確定するまで待つ。
+    while(pendingFontPromisesRef.current.size){
+      await Promise.allSettled([...pendingFontPromisesRef.current.values()]);
+    }
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+  };
+  awaitPendingFontChangesRef.current=awaitPendingFontChanges;
   const resetWholeProject=()=>{
     setShowResetConfirm(false);
+    setCanvasContentReady(true);
+    cancelPendingFontChanges();
     autoSaveSessionRef.current+=1;
     clearTimeout(autoSaveTimerRef.current);
     autoSavePendingRef.current=null;
@@ -1910,7 +2210,8 @@ function PaletteStory() {
     setImg(null);setPixels([]);setPalette([]);setPaletteCandidates([]);
     setColors([]);setColorSlots([null,null,null]);setBgColor('#F7F3FA');
     setBgSugs([]);setSelBg(null);setTitleTxt('');setBodyTxt('');
-    setColorHistory([]);setStrategy(0);setPhotoFrame('none');setPhotoFrameWidth(9);
+    setTitleColor(DEFAULT_TITLE_COLOR);
+    setColorHistory([]);setStrategy(0);setPhotoFrame('none');setPhotoFrameWidth(DEFAULT_PHOTO_FRAME_WIDTH);
     setPhotoSize('M');setPhotoScale(100);setSafeAreaVersion(SAFE_AREA_VERSION);
     setTab('photo');setViewScale(1);setViewOffset({x:0,y:0});
     editingGalleryIdRef.current=null;
@@ -1920,6 +2221,15 @@ function PaletteStory() {
     setPhotoOffsetX(0);setPhotoOffsetY(NEW_PROJECT_PHOTO_OFFSET_Y);
     setCardStyle('pantone');setCardAlign('right');setCardScale(90);
     setCardOffsetX(0);setCardOffsetY(0);
+  };
+
+  const scrollFieldInsideEditor=(field)=>{
+    const panel=editorScrollRef.current;
+    if(!panel||!field||!panel.contains(field))return;
+    const panelRect=panel.getBoundingClientRect();
+    const fieldRect=field.getBoundingClientRect();
+    const nextTop=panel.scrollTop+(fieldRect.top-panelRect.top)-(panel.clientHeight-fieldRect.height)/2;
+    panel.scrollTo({top:Math.max(0,nextTop),behavior:'smooth'});
   };
 
   // iPhone Safari: visualViewport を基準にアプリ全体の高さを更新し、
@@ -1937,11 +2247,10 @@ function PaletteStory() {
       const open=window.innerHeight-height>120;
       setKeyboardOpen(open);
       if(open && focusedFieldRef.current){
-        requestAnimationFrame(()=>{
-          setTimeout(()=>{
-            focusedFieldRef.current?.scrollIntoView({block:'center',behavior:'smooth'});
-          },80);
-        });
+        clearTimeout(viewportScrollTimerRef.current);
+        viewportScrollTimerRef.current=setTimeout(()=>{
+          scrollFieldInsideEditor(focusedFieldRef.current);
+        },80);
       }
     };
     updateViewport();
@@ -1950,13 +2259,20 @@ function PaletteStory() {
     window.addEventListener('orientationchange',updateViewport);
     const onFocusIn=(e)=>{
       if(e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)){
+        clearTimeout(focusClearTimerRef.current);
         focusedFieldRef.current=e.target;
         const ph=e.target.getAttribute('placeholder')||'';
         setActiveInputLabel(ph || (tab==='body'?'本文を入力中':tab==='title'?'タイトルを入力中':'テキストを入力中'));
-        setTimeout(()=>e.target.scrollIntoView({block:'center',behavior:'smooth'}),180);
+        clearTimeout(focusScrollTimerRef.current);
+        focusScrollTimerRef.current=setTimeout(()=>scrollFieldInsideEditor(e.target),180);
       }
     };
-    const onFocusOut=()=>{setTimeout(()=>{focusedFieldRef.current=null;},80);};
+    const onFocusOut=()=>{
+      clearTimeout(focusScrollTimerRef.current);
+      clearTimeout(viewportScrollTimerRef.current);
+      clearTimeout(focusClearTimerRef.current);
+      focusClearTimerRef.current=setTimeout(()=>{focusedFieldRef.current=null;},80);
+    };
     document.addEventListener('focusin',onFocusIn);
     document.addEventListener('focusout',onFocusOut);
     return()=>{
@@ -1967,6 +2283,9 @@ function PaletteStory() {
       window.removeEventListener('orientationchange',updateViewport);
       document.removeEventListener('focusin',onFocusIn);
       document.removeEventListener('focusout',onFocusOut);
+      clearTimeout(focusScrollTimerRef.current);
+      clearTimeout(viewportScrollTimerRef.current);
+      clearTimeout(focusClearTimerRef.current);
     };
   },[]);
 
@@ -2013,6 +2332,8 @@ function PaletteStory() {
   const restoreEditState = (st) => {
     if(!st) return;
     const hasStoredColors=Array.isArray(st.colors)&&st.colors.length>0;
+    setCanvasContentReady(false);
+    cancelPendingFontChanges();
     autoSaveSessionRef.current+=1;
     clearTimeout(autoSaveTimerRef.current);
     autoSavePendingRef.current=null;
@@ -2052,7 +2373,7 @@ function PaletteStory() {
     setCrop(st.crop||null);
     setFinalCrop(st.finalCrop||null);
     setPhotoFrame(st.photoFrame||'none');
-    setPhotoFrameWidth(st.photoFrameWidth||9);
+    setPhotoFrameWidth(st.photoFrameWidth||DEFAULT_PHOTO_FRAME_WIDTH);
     setCardStyle(st.cardStyle||'pantone');
     setCardAlign(st.cardAlign||'right');
     setCardScale(st.cardScale||90);
@@ -2080,7 +2401,7 @@ function PaletteStory() {
     setBodyFont(st.bodyFont||"'DM Sans', sans-serif");
     setTitleSize(st.titleSize||24);
     setBodySize(st.bodySize||15);
-    setTitleColor(st.titleColor||'#3D4458');
+    setTitleColor(st.titleColor||DEFAULT_TITLE_COLOR);
     setBodyColor(st.bodyColor||'rgba(61,68,88,0.72)');
     setTitleBold(!!st.titleBold);
     setBodyBold(!!st.bodyBold);
@@ -2090,8 +2411,10 @@ function PaletteStory() {
     setViewOffset({x:vo.x||0,y:vo.y||0});
     setTab('photo');
     if(st.imageSrc){
+      photoLoadingRef.current=true;
       const i=new Image();
       i.onload=()=>{
+        photoLoadingRef.current=false;
         setImg(i);
         const px=getPixelsFromImage(i);
         setPixels(px);
@@ -2102,6 +2425,12 @@ function PaletteStory() {
           setPaletteCandidates(detailed);
           setPalette(detailed.map(o=>o.hex));
         }
+      };
+      i.onerror=()=>{
+        photoLoadingRef.current=false;
+        setImg(null);
+        setCanvasContentReady(true);
+        showToast('写真を読み込めませんでした',true);
       };
       i.src=st.imageSrc;
     }else{
@@ -2115,6 +2444,7 @@ function PaletteStory() {
   // ── file upload ──
   const handleFile = (e) => {
     const f=e.target.files[0]; if(!f)return;
+    const isInitialPhoto=!img;
     photoLoadingRef.current=true;
     clearUndoHistory();
     // 写真を選び直した瞬間に、前の写真のカラー情報をすべて破棄する。
@@ -2139,6 +2469,14 @@ function PaletteStory() {
       const i=new Image();
       i.onload=()=>{
         photoLoadingRef.current=false;
+        // 初回追加時だけ、写真を上部8%の余白ガイドより8px内側へ配置する。
+        // 写真の差し替えでは、ユーザーが調整したサイズ・位置をそのまま維持する。
+        if(isInitialPhoto){
+          setPhotoSize('M');
+          setPhotoScale(100);
+          setPhotoOffsetX(0);
+          setPhotoOffsetY(NEW_PROJECT_PHOTO_OFFSET_Y);
+        }
         setImg(i);
         setFinalCrop(null); setCrop(null);
         setFitMode('contain');
@@ -2303,6 +2641,73 @@ function PaletteStory() {
   };
   const doRetry=doAuto;
 
+  // 写真追加時の余白境界への配置は初期化処理だけで行う。
+  // 以降のフレーム切り替えでは白ふち幅の差分だけを補正し、ユーザーの配置を維持する。
+  const setPhotoFrameBalanced=(nextFrame)=>{
+    if(nextFrame===photoFrame)return;
+    const currentOuterOffset=photoFrame==='white'?getPhotoFrameOuterOffset(photoFrameWidth):0;
+    const nextOuterOffset=nextFrame==='white'?getPhotoFrameOuterOffset(photoFrameWidth):0;
+    setPhotoOffsetY(value=>value-(nextOuterOffset-currentOuterOffset));
+    setPhotoFrame(nextFrame);
+  };
+  const setPhotoFrameWidthBalanced=(nextWidth)=>{
+    const previousWidth=photoFrameWidthRef.current;
+    if(nextWidth===previousWidth)return;
+    photoFrameWidthRef.current=nextWidth;
+    if(photoFrame==='white'){
+      const offsetDelta=getPhotoFrameOuterOffset(nextWidth)-getPhotoFrameOuterOffset(previousWidth);
+      if(offsetDelta)setPhotoOffsetY(value=>value-offsetDelta);
+    }
+    setPhotoFrameWidth(nextWidth);
+  };
+  const flushPhotoScaleUpdate=()=>{
+    if(photoScaleRafRef.current){
+      cancelAnimationFrame(photoScaleRafRef.current);
+      photoScaleRafRef.current=0;
+    }
+    const next=pendingPhotoScaleRef.current;
+    pendingPhotoScaleRef.current=null;
+    if(next!=null)setPhotoScale(current=>current===next?current:next);
+  };
+  const schedulePhotoScaleUpdate=(next)=>{
+    pendingPhotoScaleRef.current=next;
+    if(photoScaleRafRef.current)return;
+    photoScaleRafRef.current=requestAnimationFrame(()=>{
+      photoScaleRafRef.current=0;
+      const latest=pendingPhotoScaleRef.current;
+      pendingPhotoScaleRef.current=null;
+      if(latest!=null)setPhotoScale(current=>current===latest?current:latest);
+    });
+  };
+  const flushPhotoPositionUpdate=()=>{
+    if(photoPositionRafRef.current){
+      cancelAnimationFrame(photoPositionRafRef.current);
+      photoPositionRafRef.current=0;
+    }
+    const pending=pendingPhotoPositionRef.current;
+    pendingPhotoPositionRef.current={x:null,y:null};
+    if(pending.x!=null)setPhotoOffsetX(current=>current===pending.x?current:pending.x);
+    if(pending.y!=null)setPhotoOffsetY(current=>current===pending.y?current:pending.y);
+  };
+  const schedulePhotoPositionUpdate=(axis,next)=>{
+    pendingPhotoPositionRef.current={...pendingPhotoPositionRef.current,[axis]:next};
+    if(photoPositionRafRef.current)return;
+    photoPositionRafRef.current=requestAnimationFrame(()=>{
+      photoPositionRafRef.current=0;
+      const pending=pendingPhotoPositionRef.current;
+      pendingPhotoPositionRef.current={x:null,y:null};
+      if(pending.x!=null)setPhotoOffsetX(current=>current===pending.x?current:pending.x);
+      if(pending.y!=null)setPhotoOffsetY(current=>current===pending.y?current:pending.y);
+    });
+  };
+
+  const setNumberIfChanged=(setter,next)=>{
+    setter(current=>current===next?current:next);
+  };
+  const setPositionAxisIfChanged=(setter,axis,next)=>{
+    setter(current=>(current[axis]||0)===next?current:{...current,[axis]:next});
+  };
+
   // ── 自由配置テキスト ──
   const addFreeText=()=>{
     const previousPendingId=pendingNewFreeTextIdRef.current;
@@ -2316,8 +2721,43 @@ function PaletteStory() {
     setSelectedTextId(id);
     setActiveTextId(id);
   };
-  const updateFreeText=(id,patch)=>setFreeTexts(prev=>prev.map(t=>t.id===id?{...t,...patch}:t));
+  const updateFreeText=(id,patch)=>setFreeTexts(prev=>{
+    let changed=false;
+    const next=prev.map(t=>{
+      if(t.id!==id)return t;
+      const differs=Object.entries(patch).some(([key,value])=>t[key]!==value);
+      if(!differs)return t;
+      changed=true;
+      return {...t,...patch};
+    });
+    return changed?next:prev;
+  });
+  // iPhoneではtouchmoveが画面更新より多く届くことがあるため、
+  // Text+の作品状態更新は1描画フレームにつき1回へまとめる。
+  const flushEditorTextPatch=()=>{
+    if(editorTextMoveRafRef.current){
+      cancelAnimationFrame(editorTextMoveRafRef.current);
+      editorTextMoveRafRef.current=0;
+    }
+    const pending=editorTextPatchRef.current;
+    editorTextPatchRef.current=null;
+    if(pending)updateFreeText(pending.id,pending.patch);
+  };
+  const scheduleEditorTextPatch=(id,patch)=>{
+    const pending=editorTextPatchRef.current;
+    editorTextPatchRef.current=pending&&pending.id===id
+      ?{id,patch:{...pending.patch,...patch}}
+      :{id,patch};
+    if(editorTextMoveRafRef.current)return;
+    editorTextMoveRafRef.current=requestAnimationFrame(()=>{
+      editorTextMoveRafRef.current=0;
+      const latest=editorTextPatchRef.current;
+      editorTextPatchRef.current=null;
+      if(latest)updateFreeText(latest.id,latest.patch);
+    });
+  };
   const deleteFreeText=(id)=>{
+    cancelPendingFontTarget(`text:${id}`);
     if(pendingNewFreeTextIdRef.current===id)pendingNewFreeTextIdRef.current=null;
     delete textInputRefs.current[id];
     setFreeTexts(prev=>prev.filter(t=>t.id!==id));
@@ -2336,20 +2776,33 @@ function PaletteStory() {
     const r=canvas.getBoundingClientRect();
     return {x:(touch.clientX-r.left)/r.width*CW,y:(touch.clientY-r.top)/r.height*CH};
   };
+  const paintCanvasViewTransform=()=>{
+    const node=canvasTransformLayerRef.current;
+    if(!node)return;
+    const view=viewTransform.current;
+    node.style.transform=`scale(${view.scale}) translate(${view.x/view.scale}px,${view.y/view.scale}px)`;
+  };
+  const commitCanvasViewTransform=()=>{
+    const view=viewTransform.current;
+    setViewScale(current=>current===view.scale?current:view.scale);
+    setViewOffset(current=>current.x===view.x&&current.y===view.y?current:{x:view.x,y:view.y});
+  };
   const beginCanvasGesture=(canvas,touches)=>{
+    const view=viewTransform.current;
     if(touches.length===1){
       canvasGestureRef.current={
         mode:'pan',startX:touches[0].clientX,startY:touches[0].clientY,
-        startOffsetX:viewOffset.x,startOffsetY:viewOffset.y,moved:false
+        startOffsetX:view.x,startOffsetY:view.y,moved:false,tapEligible:true,
+        startTime:performance.now()
       };
       return true;
     }
     if(touches.length===2){
       const dx=touches[0].clientX-touches[1].clientX;
       const dy=touches[0].clientY-touches[1].clientY;
-      const startScale=viewScale;
+      const startScale=view.scale;
       const rect=canvas.getBoundingClientRect();
-      const parentRect=canvas.parentElement.getBoundingClientRect();
+      const parentRect=canvasViewportRef.current?.getBoundingClientRect()||canvas.parentElement.getBoundingClientRect();
       const baseW=rect.width/startScale,baseH=rect.height/startScale;
       const baseLeft=parentRect.left+(parentRect.width-baseW)/2;
       const baseTop=parentRect.top+(parentRect.height-baseH)/2;
@@ -2359,8 +2812,8 @@ function PaletteStory() {
         mode:'pinch',startDist:Math.max(1,Math.hypot(dx,dy)),
         startMidX:(touches[0].clientX+touches[1].clientX)/2,
         startMidY:(touches[0].clientY+touches[1].clientY)/2,
-        startScale,startOffsetX:viewOffset.x,startOffsetY:viewOffset.y,
-        originX,originY
+        startScale,startOffsetX:view.x,startOffsetY:view.y,
+        originX,originY,tapEligible:false
       };
       return true;
     }
@@ -2369,15 +2822,19 @@ function PaletteStory() {
   const moveCanvasGesture=(canvas,touches)=>{
     const g=canvasGestureRef.current;
     if(g.mode==='finishing')return true;
-    const parentRect=canvas.parentElement.getBoundingClientRect();
+    const parentRect=canvasViewportRef.current?.getBoundingClientRect()||canvas.parentElement.getBoundingClientRect();
     const maxX=Math.max(40,parentRect.width*.9),maxY=Math.max(40,parentRect.height*.9);
     if(g.mode==='pan'&&touches.length===1){
       const dx=touches[0].clientX-g.startX,dy=touches[0].clientY-g.startY;
-      if(Math.hypot(dx,dy)>3)g.moved=true;
+      const distance=Math.hypot(dx,dy);
+      // 指先の微小な揺れは短いタップ候補として保持し、7pxを超えてからCanvasパンを開始する。
+      if(g.tapEligible&&distance<=7)return true;
+      g.tapEligible=false;
+      g.moved=true;
       const x=Math.max(-maxX,Math.min(maxX,g.startOffsetX+dx));
       const y=Math.max(-maxY,Math.min(maxY,g.startOffsetY+dy));
       viewTransform.current.x=x;viewTransform.current.y=y;
-      setViewOffset({x,y});
+      paintCanvasViewTransform();
       return true;
     }
     if(g.mode==='pinch'&&touches.length===2){
@@ -2390,7 +2847,7 @@ function PaletteStory() {
       const x=Math.max(-maxX,Math.min(maxX,midX-g.originX-ratio*(g.startMidX-g.originX-g.startOffsetX)));
       const y=Math.max(-maxY,Math.min(maxY,midY-g.originY-ratio*(g.startMidY-g.originY-g.startOffsetY)));
       viewTransform.current.scale=nextScale;viewTransform.current.x=x;viewTransform.current.y=y;
-      setViewScale(nextScale);setViewOffset({x,y});
+      paintCanvasViewTransform();
       return true;
     }
     return false;
@@ -2409,6 +2866,35 @@ function PaletteStory() {
       if(Math.abs(localX)<=region.w/2+24&&Math.abs(localY)<=region.h/2+24)return {kind};
     }
     return null;
+  };
+  const hitEditableCanvasElement=(x,y)=>{
+    // 実際の描画順（写真→カード→Title→Body→Text+）の逆順で前面から判定する。
+    const freeTarget=hitTextRegion(x,y,true);
+    if(freeTarget)return freeTarget;
+    for(const kind of ['body','title']){
+      const region=textHitRegionsRef.current[kind];
+      const color=kind==='body'?bodyColor:titleColor;
+      if(!region||isFullyTransparentColor(color))continue;
+      const rad=-(region.rotation||0)*Math.PI/180;
+      const dx=x-region.cx,dy=y-region.cy;
+      const localX=dx*Math.cos(rad)-dy*Math.sin(rad);
+      const localY=dx*Math.sin(rad)+dy*Math.cos(rad);
+      if(Math.abs(localX)<=region.w/2+10&&Math.abs(localY)<=region.h/2+10)return {kind};
+    }
+    for(const kind of ['card','photo']){
+      const region=canvasElementHitRegionsRef.current[kind];
+      if(!region)continue;
+      if(x>=region.x&&x<=region.x+region.w&&y>=region.y&&y<=region.y+region.h)return {kind};
+    }
+    return null;
+  };
+  const openCanvasElementTab=(target)=>{
+    if(!target||target.kind==='free')return false;
+    if(['photo','card','title','body'].includes(target.kind)){
+      setTab(target.kind);
+      return true;
+    }
+    return false;
   };
   const findTwoFingerFreeText=(canvas,touches)=>{
     if(touches.length!==2)return null;
@@ -2510,7 +2996,7 @@ function PaletteStory() {
       const snapX=Math.abs(nx-CW/2)<SNAP,snapY=Math.abs(ny-CH/2)<SNAP;
       if(snapX)nx=CW/2;if(snapY)ny=CH/2;
       setSnapGuide({x:snapX,y:snapY});
-      updateFreeText(g.id,{x:nx,y:ny});
+      scheduleEditorTextPatch(g.id,{x:nx,y:ny});
       return true;
     }
     if(g.mode==='rotate'&&touches.length===2){
@@ -2519,7 +3005,7 @@ function PaletteStory() {
       const dy=pair[0].clientY-pair[1].clientY;
       const delta=normalizeAngleDelta(Math.atan2(dy,dx)-g.startAngle)*(180/Math.PI);
       const dist=Math.hypot(dx,dy);
-      const size=g.startDist?Math.max(11,Math.min(120,Math.round(g.startSize*(dist/g.startDist)))):g.startSize;
+      const size=g.startDist?Math.max(TEXT_PLUS_MIN_SIZE,Math.min(TEXT_PLUS_MAX_SIZE,Math.round(g.startSize*(dist/g.startDist)))):g.startSize;
       const r=canvas.getBoundingClientRect();
       const midX=(pair[0].clientX+pair[1].clientX)/2;
       const midY=(pair[0].clientY+pair[1].clientY)/2;
@@ -2529,7 +3015,7 @@ function PaletteStory() {
       const nextX=g.startTX+moveX,nextY=g.startTY+moveY;
       const guideOffset=(g.guideOffsetY||0)*(g.startSize?size/g.startSize:1);
       updateRotationSnapGuide(g.zeroSnapActive&&rotation===0,nextY+guideOffset);
-      updateFreeText(g.id,{x:nextX,y:nextY,rotation,size});
+      scheduleEditorTextPatch(g.id,{x:nextX,y:nextY,rotation,size});
       return true;
     }
     return false;
@@ -2590,7 +3076,7 @@ function PaletteStory() {
       const angleDelta=normalizeAngleDelta(Math.atan2(dy,dx)-g.startAngle);
       draft.rotation=applyTextRotationSnap(g.startRotation+angleDelta*(180/Math.PI),g);
       const dist=Math.hypot(dx,dy);
-      draft.size=g.startDist?Math.max(11,Math.min(120,g.startSize*(dist/g.startDist))):g.startSize;
+      draft.size=g.startDist?Math.max(TEXT_PLUS_MIN_SIZE,Math.min(TEXT_PLUS_MAX_SIZE,g.startSize*(dist/g.startDist))):g.startSize;
       const r=canvas.getBoundingClientRect();
       const midX=(pair[0].clientX+pair[1].clientX)/2;
       const midY=(pair[0].clientY+pair[1].clientY)/2;
@@ -2695,6 +3181,9 @@ function PaletteStory() {
     else resetPreviewView();
   },[showFullPreview]);
   useEffect(()=>()=>{
+    if(editorTextMoveRafRef.current)cancelAnimationFrame(editorTextMoveRafRef.current);
+    if(photoScaleRafRef.current)cancelAnimationFrame(photoScaleRafRef.current);
+    if(photoPositionRafRef.current)cancelAnimationFrame(photoPositionRafRef.current);
     if(previewMoveRafRef.current)cancelAnimationFrame(previewMoveRafRef.current);
     if(previewViewRafRef.current)cancelAnimationFrame(previewViewRafRef.current);
   },[]);
@@ -2762,9 +3251,19 @@ function PaletteStory() {
       photoW=srcW*_sc; photoH=srcH*_sc;
       photoX=(CW-photoW)/2; photoY=PAD;
     }
-    photoX+=(photoOffsetX||0); photoY-=(photoOffsetY||0);
+    // 幅とX座標を別々に整数丸めすると、倍率変更時に中心が左右へ0.5px往復する。
+    // 出力Canvasの実ピクセルへ揃う0.5論理px単位で外寸を決め、中心からXを逆算する。
+    photoW=Math.round(photoW*2)/2;
+    photoH=Math.round(photoH*2)/2;
+    const photoCenterX=CW/2+(photoOffsetX||0);
+    photoX=photoCenterX-photoW/2;
+    photoY=PAD-(photoOffsetY||0);
     const frameW=(img && photoFrame==='white')?photoFrameWidth:0;
     const photoBtm=photoY+photoH+frameW;
+    canvasElementHitRegionsRef.current.photo=img?{
+      x:photoX-frameW,y:photoY-frameW,w:photoW+frameW*2,h:photoH+frameW*2
+    }:null;
+    canvasElementHitRegionsRef.current.card=null;
 
     // 写真描画
     if (!img) {
@@ -2784,8 +3283,8 @@ function PaletteStory() {
       ctx.fillText('Add Photo', photoX+photoW/2, photoY+photoH/2+22);
     } else {
       if(frameW>0){
-        const fx=Math.round(photoX-frameW), fy=Math.round(photoY-frameW);
-        const fw=Math.round(photoW+frameW*2), fh=Math.round(photoH+frameW*2);
+        const fx=photoX-frameW, fy=photoY-frameW;
+        const fw=photoW+frameW*2, fh=photoH+frameW*2;
         ctx.save();
         ctx.shadowColor='rgba(61,68,88,.10)';
         ctx.shadowBlur=10;ctx.shadowOffsetY=3;
@@ -2794,10 +3293,10 @@ function PaletteStory() {
       }
       if (finalCrop && finalCrop.w>10) {
         // トリミング: crop範囲をそのまま、さらに切らない
-        ctx.drawImage(img, finalCrop.x,finalCrop.y,finalCrop.w,finalCrop.h, Math.round(photoX),Math.round(photoY),Math.round(photoW),Math.round(photoH));
+        ctx.drawImage(img, finalCrop.x,finalCrop.y,finalCrop.w,finalCrop.h, photoX,photoY,photoW,photoH);
       } else {
         // そのまま: contain表示
-        ctx.drawImage(img, Math.round(photoX),Math.round(photoY),Math.round(photoW),Math.round(photoH));
+        ctx.drawImage(img, photoX,photoY,photoW,photoH);
       }
     }
 
@@ -2823,6 +3322,7 @@ function PaletteStory() {
       cx=Math.max(cxMin, Math.min(cxMax, cx));
       // 重なり量: カードの上30%が写真に重なる
       const cy=photoBtm-Math.round(cH*0.30)-cardOffsetY;
+      canvasElementHitRegionsRef.current.card={x:cx,y:cy,w:cW,h:cH};
       // scaleしてから描画
       ctx.save();
       ctx.translate(cx,cy);
@@ -2845,7 +3345,7 @@ function PaletteStory() {
       const tSnap=titlePos.snap||titleAlign;
       const tOffX=titlePos.offsetX||0;
       const tY=curY-titlePos.offsetY;
-      ctx.fillStyle=titleColor; const tw=titleBold===true?700:400; ctx.font=`${tw} ${titleSize}px ${titleFont}`;
+      ctx.fillStyle=titleColor; const tw=getArtworkFontWeight(titleFont,titleBold===true); ctx.font=`${tw} ${titleSize}px ${titleFont}`;
       ctx.textBaseline='alphabetic';
       const tlines=wrapText(ctx,titleTxt.trim(),textW);
       ctx.textAlign='left';
@@ -2875,7 +3375,7 @@ function PaletteStory() {
       const bSnap=bodyPos.snap||bodyAlign;
       const bOffX=bodyPos.offsetX||0;
       const bY=titleBaseY-bodyPos.offsetY+bodyGap; // bodyGap：左(マイナス)で間隔が狭く、右(プラス)で広くなる
-      ctx.fillStyle=bodyColor; const bw=bodyBold===true?700:400; ctx.font=`${bw} ${bodySize}px ${bodyFont}`;
+      ctx.fillStyle=bodyColor; const bw=getArtworkFontWeight(bodyFont,bodyBold===true); ctx.font=`${bw} ${bodySize}px ${bodyFont}`;
       ctx.textBaseline='alphabetic';
       const blines=wrapText(ctx,bodyTxt.trim(),textW);
       // textAlignに頼らず各行を手動配置（2行目ズレ防止）
@@ -2917,7 +3417,7 @@ function PaletteStory() {
       ctx.translate(ft.x,ft.y);
       ctx.rotate((ft.rotation||0)*Math.PI/180);
       ctx.fillStyle=ft.color||'#3D4458';
-      const fw=ft.bold?700:400;
+      const fw=getArtworkFontWeight(ft.font,ft.bold);
       ctx.font=`${fw} ${ft.size||28}px ${ft.font||"'Playfair Display', serif"}`;
       ctx.textAlign='center';
       ctx.textBaseline='middle';
@@ -2927,42 +3427,88 @@ function PaletteStory() {
     // 両方空ならガイド
 
   },[img,bgColor,colors,cardStyle,cardAlign,cardScale,cardOffsetX,cardOffsetY,photoOffsetX,photoOffsetY,photoSize,photoScale,photoFrame,photoFrameWidth,finalCrop,titleFont,bodyFont,titleSize,bodySize,titleColor,bodyColor,titleBold,bodyBold,bodyGap,titleTxt,bodyTxt,titleAlign,bodyAlign,textOffset,titlePos,bodyPos,freeTexts]);
+  renderRef.current=render;
+  const artworkFontUsages=useMemo(()=>collectArtworkFontUsages({
+    titleFont,titleBold,titleTxt,bodyFont,bodyBold,bodyTxt,freeTexts
+  }),[titleFont,titleBold,titleTxt,bodyFont,bodyBold,bodyTxt,freeTexts]);
+  const loadArtworkFonts=useCallback(async()=>{
+    if(!document.fonts)return true;
+    return ensureArtworkFontUsagesLoaded(artworkFontUsages);
+  },[artworkFontUsages]);
 
-  // ギャラリー表示中は編集CanvasがDOMから外れるため、編集画面へ戻った時点で
-  // 保存内容が直前と同じでも、新しくマウントされたCanvasへ必ず描き直す。
+  // すべてのCanvas描画を、現在の実文字グリフが準備できた後の1回へ統一する。
+  // 読込中は既存Canvasを維持し、作品復元直後だけローディングを表示する。
   useEffect(()=>{
-    if(showGallery)return;
-    const frame=requestAnimationFrame(render);
-    return()=>cancelAnimationFrame(frame);
-  },[showGallery,render]);
+    const requestId=++fontRenderRequestRef.current;
+    if(showGallery||photoLoadingRef.current)return;
+    let cancelled=false;
+    let frame=0;
+    loadArtworkFonts().then(loaded=>{
+      if(!loaded||cancelled||requestId!==fontRenderRequestRef.current)return;
+      frame=requestAnimationFrame(()=>{
+        if(cancelled||requestId!==fontRenderRequestRef.current)return;
+        renderRef.current?.();
+        setCanvasContentReady(true);
+      });
+    });
+    return()=>{cancelled=true;cancelAnimationFrame(frame);};
+  },[showGallery,render,loadArtworkFonts]);
   useEffect(()=>{if(showFullPreview)requestAnimationFrame(render);},[showFullPreview,render]);
 
-  // ズーム・パン後のCanvas実表示矩形を測り、余白・中央・0°ガイドを同じ作品座標へ重ねる。
-  useEffect(()=>{
-    if(showGallery){setCanvasDisplayRect(null);return;}
+  // 編集開始時の実寸から9:16全体が収まる表示サイズを一度だけ決める。
+  // タブやキーボードで下部パネルの高さが変わっても、この基準fitは変更しない。
+  // 端末回転・Split Viewなどで表示幅そのものが変わった時だけ再計算する。
+  useLayoutEffect(()=>{
+    if(showGallery){
+      canvasFitLockRef.current={locked:false,viewportWidth:0};
+      setCanvasFitSize(null);
+      return;
+    }
+    const viewport=canvasViewportRef.current;
+    if(!viewport)return;
     let frame=0;
-    const measure=()=>{
+    const fit=(force=false)=>{
       cancelAnimationFrame(frame);
       frame=requestAnimationFrame(()=>{
-        const canvas=previewRef.current,viewport=canvasViewportRef.current;
-        if(!canvas||!viewport)return;
-        const cr=canvas.getBoundingClientRect(),vr=viewport.getBoundingClientRect();
-        const next={left:cr.left-vr.left,top:cr.top-vr.top,width:cr.width,height:cr.height};
-        setCanvasDisplayRect(prev=>
-          prev&&Math.abs(prev.left-next.left)<.2&&Math.abs(prev.top-next.top)<.2&&
-          Math.abs(prev.width-next.width)<.2&&Math.abs(prev.height-next.height)<.2?prev:next
-        );
+        const rect=viewport.getBoundingClientRect();
+        const lock=canvasFitLockRef.current;
+        if(lock.locked&&!force&&Math.abs(lock.viewportWidth-rect.width)<1)return;
+        const toolbarSpace=EDITOR_TOOLBAR_SPACE;
+        const appRect=viewport.parentElement?.getBoundingClientRect();
+        const bottomArea=viewport.nextElementSibling;
+        const tabBar=bottomArea?.lastElementChild;
+        const tabBarHeight=tabBar?.getBoundingClientRect().height||0;
+        // 下部シートは内容量に関係なく最大高（34dvh）を予約してfitを決める。
+        // これにより、写真の非同期読込やタブ内容の差で初期fitが変わらない。
+        const appHeight=Math.max(1,appRect?.height||rect.height);
+        const stableViewportHeight=Math.max(1,appHeight-appHeight*EDITOR_SHEET_MAX_RATIO-tabBarHeight);
+        const availableW=Math.max(1,rect.width);
+        const availableH=Math.max(1,stableViewportHeight-toolbarSpace);
+        const fitScale=Math.min(availableW/CW,availableH/CH);
+        const next={width:CW*fitScale,height:CH*fitScale};
+        canvasFitLockRef.current={locked:true,viewportWidth:rect.width};
+        setCanvasFitSize(prev=>prev&&Math.abs(prev.width-next.width)<.2&&Math.abs(prev.height-next.height)<.2?prev:next);
       });
     };
-    measure();
-    window.addEventListener('resize',measure);
-    window.visualViewport?.addEventListener('resize',measure);
+    fit(true);
+    const observer=typeof ResizeObserver!=='undefined'?new ResizeObserver(()=>fit(false)):null;
+    observer?.observe(viewport);
+    const handleResize=()=>fit(false);
+    const handleOrientationChange=()=>{
+      canvasFitLockRef.current.locked=false;
+      requestAnimationFrame(()=>fit(true));
+    };
+    window.addEventListener('resize',handleResize);
+    window.visualViewport?.addEventListener('resize',handleResize);
+    window.addEventListener('orientationchange',handleOrientationChange);
     return()=>{
       cancelAnimationFrame(frame);
-      window.removeEventListener('resize',measure);
-      window.visualViewport?.removeEventListener('resize',measure);
+      observer?.disconnect();
+      window.removeEventListener('resize',handleResize);
+      window.visualViewport?.removeEventListener('resize',handleResize);
+      window.removeEventListener('orientationchange',handleOrientationChange);
     };
-  },[showGallery,showSafeArea,snapGuide.x,snapGuide.y,viewScale,viewOffset,keyboardOpen]);
+  },[showGallery]);
 
   // 要素ごとの移動制限。Bodyは全文を内側へ、Title/Text+は一部を必ず見える位置へ戻す。
   useEffect(()=>{
@@ -3024,7 +3570,7 @@ function PaletteStory() {
 
   useEffect(()=>{
     if(selectedTextId && textItemRefs.current[selectedTextId]){
-      textItemRefs.current[selectedTextId].scrollIntoView({behavior:'smooth',block:'nearest'});
+      scrollFieldInsideEditor(textItemRefs.current[selectedTextId]);
     }
   },[selectedTextId]);
   // 新規Text+の入力欄は、追加ボタンの操作と同じ描画サイクル内でフォーカスする。
@@ -3049,16 +3595,15 @@ function PaletteStory() {
       setFreeTexts(prev=>prev.filter(t=>t.id!==id));
     }
   },[selectedTextId,tab,freeTexts]);
-  // Webフォントを確実に読み込んでからCanvasを再描画する。
-  useEffect(()=>{
-    let cancelled=false;
-    const families=[titleFont,bodyFont,...freeTexts.map(t=>t.font)].filter(Boolean);
-    Promise.all(families.map(f=>document.fonts?.load(`400 32px ${f}`).catch(()=>null)))
-      .then(()=>document.fonts?.ready)
-      .then(()=>{if(!cancelled)render();});
-    const t=setTimeout(()=>{if(!cancelled)render();},500);
-    return ()=>{cancelled=true;clearTimeout(t);};
-  },[titleFont,bodyFont,freeTexts,render]);
+  const renderArtworkAfterFontsReady=useCallback(async()=>{
+    await awaitPendingFontChangesRef.current?.();
+    const loaded=await loadArtworkFonts();
+    if(!loaded)return false;
+    renderRef.current?.();
+    setCanvasContentReady(true);
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+    return true;
+  },[loadArtworkFonts]);
 
   // ── crop canvas draw ──
   const drawCropCanvas=useCallback(()=>{
@@ -3159,12 +3704,9 @@ function PaletteStory() {
   };
   const createCurrentImageDataUrl=()=>{
     if(!previewRef.current)return null;
-    const sv=document.createElement('canvas');
-    sv.width=OUT_W;sv.height=OUT_H;
-    const ctx=sv.getContext('2d');
-    ctx.scale(SCALE,SCALE);
-    ctx.drawImage(previewRef.current,0,0,CW*RENDER_SCALE,CH*RENDER_SCALE,0,0,CW,CH);
-    return sv.toDataURL('image/png');
+    // 編集Canvas自体が書き出し解像度（1620×2880）なので、
+    // 同じ大きさのCanvasをもう1枚確保して1:1コピーする必要はない。
+    return previewRef.current.toDataURL('image/png');
   };
 
   const sharePreparedImage = async (prepared) => {
@@ -3231,6 +3773,12 @@ function PaletteStory() {
   // ギャラリーへの保存だけを行う（共有ダイアログは出さない）。ホームボタンからの自動保存用にも使う
   // mode: 'new'=常に新規追加, 'overwrite'=編集元があればそれを上書き, 未指定=編集元があれば自動で上書き
   const saveSnapshotToGallery=async(mode)=>{
+    if(pendingFontPromisesRef.current.size){
+      await awaitPendingFontChangesRef.current?.();
+      if(saveSnapshotToGalleryRef.current&&saveSnapshotToGalleryRef.current!==saveSnapshotToGallery){
+        return saveSnapshotToGalleryRef.current(mode);
+      }
+    }
     // 自動保存・Preview遷移・明示保存など、すべてのIndexedDB書き込みを同じ列へ並べる。
     // 前の処理が終わるまで次を開始しないため、保存中を競合エラーとして扱わない。
     const previous=gallerySaveTailRef.current;
@@ -3241,6 +3789,8 @@ function PaletteStory() {
     savingRef.current=true;
     setIsSaving(true);
     try{
+      const rendered=await renderArtworkAfterFontsReady();
+      if(!rendered)throw new Error('artwork font is not ready');
       const dataUrl=createCurrentImageDataUrl();
       if(!dataUrl)throw new Error('canvas is not ready');
       // ギャラリーに保存（サムネイル用に小さく）
@@ -3303,11 +3853,17 @@ function PaletteStory() {
       releaseTurn();
     }
   };
+  saveSnapshotToGalleryRef.current=saveSnapshotToGallery;
   const saveImageOnly=async()=>{
     if(saveFlowRef.current||savingRef.current)return;
     saveFlowRef.current=true;
     setIsSaving(true);
     try{
+      const rendered=await renderArtworkAfterFontsReady();
+      if(!rendered){
+        showToast('フォントを読み込めませんでした',true);
+        return;
+      }
       const dataUrl=createCurrentImageDataUrl();
       if(!dataUrl){
         showToast('画像を生成できませんでした',true);
@@ -3367,6 +3923,9 @@ function PaletteStory() {
   };
   const flushAutoSave=(force=false)=>{
     clearTimeout(autoSaveTimerRef.current);
+    if(pendingFontPromisesRef.current.size){
+      return awaitPendingFontChangesRef.current().then(()=>autoSaveFlushRef.current?.(force));
+    }
     if(photoLoadingRef.current)return Promise.resolve(true);
     if(showGallery||(!editingGalleryIdRef.current&&!hasMeaningfulEdit))return Promise.resolve(true);
     if(!force&&autoSaveSignature===autoSaveLastSignatureRef.current&&!autoSavePendingRef.current){
@@ -3418,8 +3977,8 @@ function PaletteStory() {
   const SBtn=({onClick,active,children,full=true,style={}})=>(
     <button onClick={onClick} style={{padding:'8px 10px',background:active?'var(--ui-tab-active)':'var(--ui-panel)',color:active?'var(--ui-ink)':C.cardInk,border:`1.5px solid ${active?'var(--ui-border-active)':C.border}`,borderRadius:4,fontFamily:'inherit',fontSize:'.66rem',cursor:'pointer',width:full?'100%':'auto',boxShadow:'var(--ui-button-shadow)',...style}}>{children}</button>
   );
-  // Hint原稿の指定改行をiPhone Safariでも維持する表示行。
-  const HL=({children})=><span style={{display:'block',width:'100%',maxWidth:'100%',whiteSpace:'nowrap'}}>{children}</span>;
+  // Hint原稿の表示行。狭い端末ではカード内で安全に折り返す。
+  const HL=({children})=><span style={{display:'block',width:'100%',maxWidth:'100%',whiteSpace:'normal',overflowWrap:'break-word',wordBreak:'normal'}}>{children}</span>;
   const HGap=()=> <span aria-hidden="true" style={{display:'block',height:'.75em'}}/>;
   const Lbl=({t,sub:s})=>(
     <div style={{marginBottom:7,marginTop:14,display:'flex',alignItems:'baseline',gap:5}}>
@@ -3526,12 +4085,16 @@ function PaletteStory() {
           {toastError?'!':'✓'} {toast}
         </div>
       )}
-      <div style={{padding:'16px 20px 12px',background:'#fff',borderBottom:'1px solid #E7DDEA',display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
-        <div>
-          <span style={{fontFamily:"'Plus Jakarta Sans',sans-serif",fontWeight:800,fontSize:'1.1rem',color:'var(--ui-logo)',letterSpacing:'.02em'}}>palette story.</span>
-          <div style={{fontSize:'.58rem',color:'#B8B0C8',letterSpacing:'.08em'}}>Your photo. Your palette.</div>
-        </div>
-        <button onClick={()=>{
+      <div style={{padding:'18px 20px 16px',background:'#F3ECFA',flexShrink:0}}>
+        <span style={{fontFamily:"'Manrope','DM Sans',sans-serif",fontWeight:700,fontSize:'1.72rem',lineHeight:1.12,color:'var(--ui-logo)',letterSpacing:'.025em'}}>palette story.</span>
+                    <div style={{marginTop:3,fontSize:'.90rem',color:'#B8B0C8',letterSpacing:'.08em'}}>your photo, your palette.</div>
+      </div>
+      <div style={{padding:'15px 20px 14px',background:'#fff',borderBottom:'1px solid #E7DDEA',flexShrink:0}}>
+                    <div style={{textAlign:'center',fontSize:'.93rem',fontWeight:600,lineHeight:1.55,color:'var(--ui-muted)',opacity:.96,letterSpacing:'.04em'}}>写真から広がる、わたしの色。</div>
+        <div style={{display:'flex',justifyContent:'center',marginTop:12}}>
+          <button onClick={()=>{
+            cancelPendingFontChanges();
+            setCanvasContentReady(true);
             autoSaveSessionRef.current+=1;
             clearTimeout(autoSaveTimerRef.current);
             autoSavePendingRef.current=null;
@@ -3549,6 +4112,7 @@ function PaletteStory() {
             setSafeAreaVersion(SAFE_AREA_VERSION);
             setImg(null);setPixels([]);setPalette([]);setPaletteCandidates([]);setColors([]);setColorSlots([null,null,null]);setBgColor('#F7F3FA');
             setTitleTxt('');setBodyTxt('');setColorHistory([]);setStrategy(0);setPhotoFrame('none');
+            setTitleColor(DEFAULT_TITLE_COLOR);
             setCrop(null);setFinalCrop(null);setBgSugs([]);setSelBg(null);setSuggestions([]);setShowSugg(false);
             setPhotoSize('M');setPhotoScale(100);setPhotoOffsetX(0);setPhotoOffsetY(NEW_PROJECT_PHOTO_OFFSET_Y);
             setCardStyle('pantone');setCardAlign('right');setCardScale(90);setCardOffsetX(0);setCardOffsetY(0);
@@ -3560,11 +4124,15 @@ function PaletteStory() {
             textInputRefs.current={};
             setEditingGalleryId(null);setFreeTexts([]);setSelectedTextId(null);setActiveTextId(null);
           }}
-          style={{padding:'10px 20px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.82rem',fontWeight:600,cursor:'pointer'}}>
-          ＋ 新しく作る
-        </button>
+          style={{padding:'9px 22px',background:'#C8A8C8',color:'#fff',border:'none',borderRadius:4,fontFamily:'inherit',fontSize:'.75rem',fontWeight:600,cursor:'pointer'}}>
+            ＋ 新しく作る
+          </button>
+        </div>
+        <div style={{marginTop:16,color:'var(--ui-muted)'}}>
+          <div style={{fontSize:'.7rem',fontWeight:600,letterSpacing:'.08em'}}>ギャラリー</div>
+        </div>
       </div>
-      <div style={{flex:1,overflowY:'auto',padding:'16px'}}>
+      <div style={{flex:1,overflowY:'auto',padding:'26px 16px 16px'}}>
         {gallery.length===0?(
           <div style={{textAlign:'center',paddingTop:80,color:'#B8B0C8'}}>
             <div style={{fontSize:'.9rem',marginBottom:8,color:'#8A90A0'}}>まだ作品がありません</div>
@@ -3575,7 +4143,7 @@ function PaletteStory() {
             {gallery.map(item=>(
               <div key={item.id} style={{position:'relative',cursor:'pointer'}}
                 onClick={()=>setGalleryPreview(item)}>
-                <img src={item.thumbUrl} style={{width:'100%',aspectRatio:'9/16',objectFit:'cover',borderRadius:4,display:'block'}}/>
+                <img src={item.thumbUrl} loading="lazy" decoding="async" style={{width:'100%',aspectRatio:'9/16',objectFit:'cover',borderRadius:4,display:'block'}}/>
                 <div style={{position:'absolute',bottom:0,left:0,right:0,background:'linear-gradient(transparent,rgba(117,109,137,.56))',borderRadius:'0 0 8px 8px',padding:'12px 4px 4px',fontSize:'.48rem',color:'rgba(255,255,255,.9)',textAlign:'center'}}>{item.date}</div>
               </div>
             ))}
@@ -3650,7 +4218,6 @@ function PaletteStory() {
   return(
     <div {...undoCaptureHandlers} style={{background:'var(--ui-bg)',fontFamily:"'DM Sans',sans-serif",height:'var(--app-height, 100dvh)',maxWidth:480,margin:'0 auto',display:'flex',flexDirection:'column',overflow:'hidden',position:'relative',color:'#fff'}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=DM+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Caveat:wght@400;600&family=Dancing+Script&family=Sriracha&family=Sacramento&family=Homemade+Apple&family=Pacifico&family=Covered+By+Your+Grace&family=RocknRoll+One&family=Shippori+Mincho:wght@400;600&family=Zen+Old+Mincho:wght@400;600&family=Zen+Maru+Gothic:wght@400;500&family=Zen+Kaku+Gothic+New:wght@300;400;500&family=Noto+Sans+JP:wght@300;400;500&family=Murecho&family=M+PLUS+1p&family=Yomogi&family=Kiwi+Maru&family=Darumadrop+One&family=Kosugi+Maru&family=Kosugi&family=M+PLUS+Rounded+1c&display=swap');
         *{box-sizing:border-box;}
         select,textarea{padding:9px 11px;border:1.5px solid var(--ui-border);border-radius:4px;font-size:16px;font-family:inherit;color:var(--ui-ink);background:var(--ui-panel);outline:none;width:100%;resize:none;transition:border-color 130ms ease-out,box-shadow 130ms ease-out;}
         input:not([type=range]):not([type=color]):not([type=file]){font-size:16px;}
@@ -3659,13 +4226,15 @@ function PaletteStory() {
         textarea::placeholder{color:#B8B0C8;}
         textarea{line-height:1.45;}
         .soft-card{background:#fff;border:1px solid #E8DDF0;border-radius:6px;box-shadow:0 6px 18px rgba(126,94,148,.08);}
-        input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;background:var(--ui-border-active);outline:none;}
-        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:21px;height:21px;border-radius:50%;background:#fff;border:2px solid var(--ui-accent);box-shadow:0 2px 7px rgba(70,60,90,.12);cursor:pointer;}
-        input[type=range]::-moz-range-thumb{width:19px;height:19px;border-radius:50%;background:#fff;border:2px solid var(--ui-accent);box-shadow:0 2px 7px rgba(70,60,90,.12);cursor:pointer;}
+        input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;border-radius:999px;background:var(--ui-border-active);outline:none;transition:none!important;}
+        input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:21px;height:21px;border-radius:50%;background:#fff;border:2px solid var(--ui-accent);box-shadow:0 2px 7px rgba(70,60,90,.12);cursor:pointer;transition:none!important;}
+        input[type=range]::-webkit-slider-runnable-track{transition:none!important;}
+        input[type=range]::-moz-range-thumb{width:19px;height:19px;border-radius:50%;background:#fff;border:2px solid var(--ui-accent);box-shadow:0 2px 7px rgba(70,60,90,.12);cursor:pointer;transition:none!important;}
+        input[type=range]::-moz-range-track{transition:none!important;}
         @keyframes paletteReveal{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
         .palette-reveal{animation:paletteReveal 180ms ease-out both;}
-        @media (max-width:380px){.hint-modal-overlay{padding:12px!important;}.hint-copy{font-size:.74rem!important;}}
-        @media (max-width:365px){.hint-copy{font-size:.71rem!important;}}
+        @media (max-width:380px){.hint-modal-overlay{padding:12px!important;}.hint-copy{font-size:.72rem!important;padding:13px 10px!important;line-height:1.78!important;}}
+        @media (max-width:365px){.hint-copy{font-size:.7rem!important;padding:12px 9px!important;}}
         @media (prefers-reduced-motion:reduce){select,textarea{transition:none;}.palette-reveal{animation:none;}}
       `}</style>
 
@@ -3678,28 +4247,34 @@ function PaletteStory() {
       )}
 
       {/* ── 全画面プレビュー ── */}
-      <div ref={canvasViewportRef} style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,position:'relative',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center',background:'var(--ui-canvas-bg)',transition:'flex-basis .18s ease'}}
+      <div ref={canvasViewportRef} style={{flex:keyboardOpen?'0 0 42%':'1 1 auto',minHeight:keyboardOpen?'118px':0,paddingTop:EDITOR_TOOLBAR_SPACE,position:'relative',overflow:'hidden',display:'flex',alignItems:'flex-start',justifyContent:'center',background:'var(--ui-canvas-bg)',transition:'flex-basis .18s ease'}}
         onClick={()=>{}}>
 
-        {showSafeArea&&canvasDisplayRect&&(
-          <div style={{position:'absolute',left:canvasDisplayRect.left,top:canvasDisplayRect.top,width:canvasDisplayRect.width,height:canvasDisplayRect.height,pointerEvents:'none',zIndex:35}}>
-            <div style={{position:'absolute',top:0,left:0,right:0,height:`${STORY_SAFE_TOP_RATIO*100}%`,background:'repeating-linear-gradient(135deg,rgba(255,90,90,.28) 0 6px,rgba(255,90,90,.12) 6px 12px)'}}/>
-            <div style={{position:'absolute',bottom:0,left:0,right:0,height:`${STORY_SAFE_BOTTOM_RATIO*100}%`,background:'repeating-linear-gradient(135deg,rgba(255,90,90,.28) 0 6px,rgba(255,90,90,.12) 6px 12px)'}}/>
+        <div ref={canvasTransformLayerRef}
+          style={{position:'relative',height:canvasFitSize?`${canvasFitSize.height}px`:'100%',width:canvasFitSize?`${canvasFitSize.width}px`:'auto',aspectRatio:'9/16',flexShrink:0,
+            transform:`scale(${viewTransform.current.scale}) translate(${viewTransform.current.x/viewTransform.current.scale}px,${viewTransform.current.y/viewTransform.current.scale}px)`,
+            transformOrigin:`${viewOrigin.x}% ${viewOrigin.y}%`,willChange:'transform'}}>
+        {showSafeArea&&(
+          <div style={{position:'absolute',inset:0,pointerEvents:'none',zIndex:35}}>
+            <div style={{position:'absolute',top:0,left:0,right:0,height:`${STORY_SAFE_TOP_RATIO*100}%`,background:'rgba(220,190,224,.22)',borderBottom:'1px solid rgba(181,142,194,.42)'}}/>
+            <div style={{position:'absolute',bottom:0,left:0,right:0,height:`${STORY_SAFE_BOTTOM_RATIO*100}%`,background:'rgba(220,190,224,.22)',borderTop:'1px solid rgba(181,142,194,.42)'}}/>
           </div>
         )}
 
         <canvas ref={previewRef} width={CW*RENDER_SCALE} height={CH*RENDER_SCALE}
-          style={{height:'100%',width:'auto',aspectRatio:'9/16',display:'block',maxWidth:'100%',touchAction:'none',
-            overflow:'hidden',clipPath:'inset(0)',
-            transform:`scale(${viewScale}) translate(${viewOffset.x/viewScale}px,${viewOffset.y/viewScale}px)`,
-            transformOrigin:`${viewOrigin.x}% ${viewOrigin.y}%`,
-            transition:'transform-origin .05s linear'}}
+          style={{height:'100%',width:'100%',display:'block',touchAction:'none',overflow:'hidden',clipPath:'inset(0)',opacity:canvasContentReady?1:0,pointerEvents:canvasContentReady?'auto':'none'}}
           onTouchStart={(e)=>{
+            suppressCanvasClickUntilRef.current=performance.now()+700;
             const vt=viewTransform.current;
             const owner=gestureOwnerRef.current;
             if(owner==='canvas'){
               // Canvasとして始まった操作は、指が増えてもText+へ切り替えない。
               beginCanvasGesture(e.currentTarget,e.touches);
+              if(e.touches.length===2){
+                updateRotationSnapGuide(false);
+                setSelectedTextId(null);
+                setActiveTextId(null);
+              }
               vt.pinching=e.touches.length===2;vt.dragging=false;vt.lastDist=0;
               e.preventDefault();e.stopPropagation();
               return;
@@ -3726,12 +4301,14 @@ function PaletteStory() {
               }
             }
             freeTextGestureRef.current={mode:null,id:null};
-            // Canvas操作の開始時点で編集対象を解除し、選択中Text+が操作を奪わないようにする。
-            updateRotationSnapGuide(false);
-            setSelectedTextId(null);
-            setActiveTextId(null);
+            // 短いタップの確定前には、タブや選択状態を変更しない。
             gestureOwnerRef.current='canvas';
             beginCanvasGesture(e.currentTarget,e.touches);
+            if(e.touches.length===2){
+              updateRotationSnapGuide(false);
+              setSelectedTextId(null);
+              setActiveTextId(null);
+            }
             vt.pinching=e.touches.length===2;vt.dragging=false;vt.lastDist=0;
             e.preventDefault();e.stopPropagation();
           }}
@@ -3743,12 +4320,19 @@ function PaletteStory() {
               return;
             }
             if(owner==='canvas'){
+              const wasTapCandidate=!!canvasGestureRef.current.tapEligible;
               moveCanvasGesture(e.currentTarget,e.touches);
+              if(wasTapCandidate&&!canvasGestureRef.current.tapEligible){
+                updateRotationSnapGuide(false);
+                setSelectedTextId(null);
+                setActiveTextId(null);
+              }
             }
           }}
           onTouchEnd={(e)=>{
             const vt=viewTransform.current;
             const owner=gestureOwnerRef.current;
+            if(owner==='text'||owner==='textPending')flushEditorTextPatch();
             const canvasGesture=canvasGestureRef.current;
             if(owner==='canvas'&&canvasGesture.mode==='pinch'&&e.touches.length>0){
               canvasGestureRef.current={mode:'finishing'};
@@ -3756,6 +4340,25 @@ function PaletteStory() {
               return;
             }
             if(owner==='canvas'&&(canvasGesture.mode==='pan'||canvasGesture.mode==='pinch'||canvasGesture.mode==='finishing')){
+              const changedTouch=e.changedTouches&&e.changedTouches[0];
+              const elapsed=canvasGesture.startTime==null?Infinity:performance.now()-canvasGesture.startTime;
+              const distance=changedTouch&&canvasGesture.mode==='pan'
+                ?Math.hypot(changedTouch.clientX-canvasGesture.startX,changedTouch.clientY-canvasGesture.startY)
+                :Infinity;
+              const isShortTap=canvasGesture.mode==='pan'&&e.touches.length===0&&canvasGesture.tapEligible&&distance<=7&&elapsed<=350;
+              if(isShortTap){
+                const point=touchToStoryPoint(e.currentTarget,changedTouch);
+                const target=hitEditableCanvasElement(point.x,point.y);
+                if(!openCanvasElementTab(target)){
+                  setSelectedTextId(null);
+                  setActiveTextId(null);
+                }
+                canvasGestureRef.current={mode:null};
+                gestureOwnerRef.current=null;
+                vt.pinching=false;vt.dragging=false;vt.lastDist=0;
+                return;
+              }
+              commitCanvasViewTransform();
               canvasGestureRef.current={mode:null};
               if(e.touches.length===0)gestureOwnerRef.current=null;
               vt.pinching=false;vt.dragging=false;vt.lastDist=0;
@@ -3801,6 +4404,8 @@ function PaletteStory() {
             setTimeout(()=>{vt.dragging=false;},150);
           }}
           onTouchCancel={()=>{
+            flushEditorTextPatch();
+            if(gestureOwnerRef.current==='canvas')commitCanvasViewTransform();
             canvasGestureRef.current={mode:null};
             freeTextGestureRef.current={mode:null,id:null};
             gestureOwnerRef.current=null;
@@ -3810,6 +4415,8 @@ function PaletteStory() {
             updateRotationSnapGuide(false);
           }}
           onPointerCancel={()=>{
+            flushEditorTextPatch();
+            if(gestureOwnerRef.current==='canvas')commitCanvasViewTransform();
             canvasGestureRef.current={mode:null};
             freeTextGestureRef.current={mode:null,id:null};
             gestureOwnerRef.current=null;
@@ -3820,24 +4427,33 @@ function PaletteStory() {
           }}
           onClick={(e)=>{
             e.stopPropagation();
+            // touchendで処理済みの合成clickは無視し、二重のタブ切り替えを防ぐ。
+            if(performance.now()<suppressCanvasClickUntilRef.current)return;
             const r=e.currentTarget.getBoundingClientRect();
             const x=(e.clientX-r.left)/r.width*CW;
             const y=(e.clientY-r.top)/r.height*CH;
-            const textTarget=hitTextRegion(x,y,true);
-            if(textTarget){selectCanvasText(textTarget,true);return;}
+            const target=hitEditableCanvasElement(x,y);
+            if(target?.kind==='free'){selectCanvasText(target,true);return;}
+            if(openCanvasElementTab(target))return;
             setSelectedTextId(null);setActiveTextId(null);
           }}
         />
-        {snapGuide.x&&canvasDisplayRect&&(
-          <div style={{position:'absolute',left:canvasDisplayRect.left+canvasDisplayRect.width/2,top:canvasDisplayRect.top,height:canvasDisplayRect.height,width:1,background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)',pointerEvents:'none',zIndex:36}}/>
+        {!canvasContentReady&&(
+          <div aria-live="polite" style={{position:'absolute',inset:0,zIndex:41,display:'grid',placeItems:'center',background:'var(--ui-canvas-bg)',color:'var(--ui-muted)',fontSize:'.72rem',fontWeight:600,pointerEvents:'auto'}}>
+            読み込み中…
+          </div>
         )}
-        {snapGuide.y&&canvasDisplayRect&&(
-          <div style={{position:'absolute',top:canvasDisplayRect.top+canvasDisplayRect.height/2,left:canvasDisplayRect.left,width:canvasDisplayRect.width,height:1,background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)',pointerEvents:'none',zIndex:36}}/>
+        {snapGuide.x&&(
+          <div style={{position:'absolute',left:'50%',top:0,bottom:0,width:1,background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)',pointerEvents:'none',zIndex:36}}/>
+        )}
+        {snapGuide.y&&(
+          <div style={{position:'absolute',top:'50%',left:0,right:0,height:1,background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)',pointerEvents:'none',zIndex:36}}/>
         )}
         <div ref={canvasRotationGuideRef} aria-hidden="true"
-          style={{position:'absolute',display:'none',height:1,pointerEvents:'none',zIndex:37,opacity:.58,background:'repeating-linear-gradient(90deg,#9F7BC2 0 7px,transparent 7px 12px)',boxShadow:'0 0 3px rgba(159,123,194,.28)'}}/>
+          style={{position:'absolute',display:'none',left:0,right:0,height:1,pointerEvents:'none',zIndex:37,background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)'}}/>
+        </div>
         {/* 写真未選択時：Canvasとは独立したlabelからfile inputを開く。 */}
-        {!img&&(
+        {!img&&canvasContentReady&&(
           <label data-undo-ignore="true" htmlFor="photoInput"
             onClick={e=>e.stopPropagation()}
             style={{
@@ -3862,10 +4478,10 @@ function PaletteStory() {
         )}
         {/* ロゴ＋アクション（上部オーバーレイ） */}
         <div style={{position:'absolute',top:0,left:0,right:0,padding:'6px',background:'var(--ui-toolbar-bg)',display:keyboardOpen?'none':'flex',flexWrap:'nowrap',gap:2,justifyContent:'space-between',alignItems:'center',pointerEvents:'none',zIndex:50}}>
-          <span style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'.68rem',color:'var(--ui-logo)',letterSpacing:'.035em',lineHeight:LOGO_LAYOUT==='stacked'?.88:1,transform:'translateY(-1px)',opacity:1,whiteSpace:'nowrap',flexShrink:0}}>
+          <span style={{fontFamily:"'Manrope','DM Sans',sans-serif",fontWeight:700,fontSize:'.85rem',color:'var(--ui-logo)',letterSpacing:'.025em',lineHeight:LOGO_LAYOUT==='stacked'?.88:1,transform:'translateY(-1px)',opacity:1,whiteSpace:'nowrap',flexShrink:0}}>
             {LOGO_LAYOUT==='stacked'?<>palette<br/>story.</>:'palette story.'}
           </span>
-          <div style={{display:'flex',flexWrap:'nowrap',gap:1,justifyContent:'flex-end',pointerEvents:'auto',alignItems:'center',minWidth:0,position:'relative'}}>
+          <div style={{display:'flex',flexWrap:'nowrap',gap:2,justifyContent:'flex-end',pointerEvents:'auto',alignItems:'center',minWidth:0,position:'relative'}}>
             <button type="button" aria-label="Home" disabled={isSaving} onClick={async(e)=>{e.stopPropagation();if(savingRef.current||saveFlowRef.current)return;await autoSaveFlushRef.current?.();setShowGallery(true);}}
               style={{width:26,height:32,flex:'0 0 26px',display:'grid',placeItems:'center',background:'var(--ui-panel)',color:'var(--ui-icon)',border:'1px solid var(--ui-border)',borderRadius:3,fontFamily:'inherit',cursor:isSaving?'default':'pointer',opacity:isSaving?0.55:1,boxShadow:'var(--ui-button-shadow)'}}>
               <SolidIcon name="home" size={15}/>
@@ -3875,7 +4491,7 @@ function PaletteStory() {
               <span style={{fontSize:'.9rem',lineHeight:1}}>💡</span>
             </button>
             <button data-undo-ignore="true" aria-label="ひとつ戻る" disabled={undoCount===0}
-              onClick={(e)=>{e.stopPropagation();undoLastAction();}}
+              onClick={async(e)=>{e.stopPropagation();await awaitPendingFontChangesRef.current?.();undoLastAction();}}
               style={{height:32,minWidth:42,padding:'0 3px',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:1,background:undoCount?'#FFFFFF':'#EEEAF1',color:undoCount?'#273044':'#AAA3B1',border:`1.5px solid ${undoCount?'#B7A6C2':'#DDD7E1'}`,borderRadius:3,fontFamily:'inherit',cursor:undoCount?'pointer':'default',opacity:1,boxShadow:undoCount?'0 5px 14px rgba(126,94,148,.14)':'none'}}>
               <SolidIcon name="undo" size={15}/>
               <span style={{fontSize:'.56rem',fontWeight:900,lineHeight:1}}>Undo</span>
@@ -3884,25 +4500,21 @@ function PaletteStory() {
               style={{height:32,minWidth:38,padding:'0 3px',display:'grid',placeItems:'center',background:'var(--ui-panel)',color:'var(--ui-icon)',border:'1px solid var(--ui-border)',borderRadius:3,fontFamily:'inherit',fontSize:'.5rem',fontWeight:850,cursor:'pointer',boxShadow:'var(--ui-button-shadow)'}}>
               Reset
             </button>
-            {img&&(
-              <button type="button" aria-label="Preview" onClick={async(e)=>{e.stopPropagation();await autoSaveFlushRef.current?.();setSnapGuide({x:false,y:false});setPreviewShare(null);setPreviewPreparing(false);setShowFullPreview(true);}}
-                style={{height:32,minWidth:50,padding:'0 3px',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:2,background:'var(--ui-panel)',color:'var(--ui-icon)',border:'1px solid var(--ui-border)',borderRadius:3,fontFamily:'inherit',fontSize:'.5rem',fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'var(--ui-button-shadow)'}}>
-                <SolidIcon name="eye" size={13}/> Preview
-              </button>
-            )}
-            {img&&(
-              <button disabled={isSaving} onClick={(e)=>{e.stopPropagation();if(isSaving)return;setShowSaveOptions(true);}}
-                style={{height:32,minWidth:54,padding:'2px 3px',display:'inline-flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1,background:isSaving?'#EEE9F3':'var(--ui-save-bg)',color:isSaving?'#9D96A7':'var(--ui-save-ink)',border:`1px solid ${isSaving?'#E3DCE9':'var(--ui-save-border)'}`,borderRadius:3,fontFamily:'inherit',fontWeight:900,cursor:isSaving?'default':'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:'var(--ui-button-shadow)'}}>
-                <span style={{display:'inline-flex',alignItems:'center',gap:2,fontSize:'.5rem'}}><SolidIcon name="save" size={11}/> Save</span>
+            <button type="button" aria-label="Preview" disabled={!img} onClick={async(e)=>{e.stopPropagation();if(!img)return;await awaitPendingFontChangesRef.current?.();await autoSaveFlushRef.current?.();const rendered=await renderArtworkAfterFontsReady();if(!rendered){showToast('フォントを読み込めませんでした',true);return;}setSnapGuide({x:false,y:false});setPreviewShare(null);setPreviewPreparing(false);setShowFullPreview(true);}}
+              style={{height:32,minWidth:46,padding:'0 4px',display:'inline-flex',alignItems:'center',justifyContent:'center',background:'var(--ui-panel)',color:img?'var(--ui-icon)':'#AAA3B1',border:'1px solid var(--ui-border)',borderRadius:3,fontFamily:'inherit',fontSize:'.5rem',fontWeight:800,cursor:img?'pointer':'default',whiteSpace:'nowrap',lineHeight:1,boxShadow:img?'var(--ui-button-shadow)':'none',opacity:img?1:.62}}>
+              Preview
+            </button>
+              <button aria-label="Save" disabled={isSaving||!img} onClick={async(e)=>{e.stopPropagation();if(isSaving||!img)return;await awaitPendingFontChangesRef.current?.();setShowSaveOptions(true);}}
+                style={{height:32,minWidth:44,padding:'2px',display:'inline-flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1,background:isSaving||!img?'#EEE9F3':'var(--ui-save-bg)',color:isSaving||!img?'#9D96A7':'var(--ui-save-ink)',border:`1px solid ${isSaving||!img?'#E3DCE9':'var(--ui-save-border)'}`,borderRadius:3,fontFamily:'inherit',fontWeight:900,cursor:isSaving||!img?'default':'pointer',whiteSpace:'nowrap',lineHeight:1,boxShadow:isSaving||!img?'none':'var(--ui-button-shadow)',opacity:img?1:.62}}>
+                <span style={{fontSize:'.55rem'}}>Save</span>
                 {autoSaveStatus!=='idle'&&(
-                  <span aria-live="polite" style={{fontSize:'.38rem',fontWeight:800,color:autoSaveStatus==='error'?'#A05E68':'inherit',letterSpacing:0}}>
-                    {autoSaveStatus==='saving'?'Saving...':autoSaveStatus==='saved'&&lastSavedAt?`Saved ${formatSavedTime(lastSavedAt)}`:autoSaveStatus==='saved'?'Saved':'Save error'}
+                  <span aria-live="polite" style={{fontSize:'.56rem',fontWeight:800,lineHeight:.9,color:autoSaveStatus==='error'?'#A05E68':'inherit',letterSpacing:0}}>
+                    {autoSaveStatus==='saving'?'Saving...':autoSaveStatus==='saved'&&lastSavedAt?formatSavedTime(lastSavedAt):autoSaveStatus==='saved'?'':'Save error'}
                   </span>
                 )}
               </button>
-            )}
             <button type="button" aria-label="余白ガイド" onClick={(e)=>{e.stopPropagation();setShowSafeArea(v=>!v);}}
-              style={{height:32,minWidth:44,padding:'0 3px',border:`1px solid ${showSafeArea?'#3D4458':'rgba(231,221,234,.9)'}`,borderRadius:3,fontFamily:'inherit',fontSize:'.46rem',fontWeight:800,cursor:'pointer',background:showSafeArea?'#3D4458':'rgba(255,255,255,.92)',color:showSafeArea?'#fff':'#7A8192',whiteSpace:'nowrap',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
+              style={{height:32,minWidth:44,padding:'0 3px',border:`1px solid ${showSafeArea?'var(--ui-accent-deep)':'rgba(231,221,234,.9)'}`,borderRadius:3,fontFamily:'inherit',fontSize:'.46rem',fontWeight:800,cursor:'pointer',background:showSafeArea?'var(--ui-accent-deep)':'rgba(255,255,255,.92)',color:showSafeArea?'#fff':'#7A8192',whiteSpace:'nowrap',boxShadow:'0 5px 14px rgba(126,94,148,.10)'}}>
               余白ガイド
             </button>
           </div>
@@ -3917,7 +4529,7 @@ function PaletteStory() {
             background:'var(--ui-panel)',borderTop:'1px solid var(--ui-border)',
             borderBottom:'1px solid var(--ui-border)',
             overflowY:'auto',
-            maxHeight:keyboardOpen?'58%':'34dvh',
+            maxHeight:keyboardOpen?'58%':`${EDITOR_SHEET_MAX_RATIO*100}dvh`,
             minHeight:keyboardOpen?'170px':undefined,
             overscrollBehavior:'contain',
             WebkitOverflowScrolling:'touch',
@@ -3951,31 +4563,41 @@ function PaletteStory() {
                     <div style={{display:'flex',alignItems:'center',gap:8,marginTop:8}}>
                       <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,minWidth:34}}>{photoScale}%</span>
                       <input aria-label="写真サイズ微調整" type="range" min={50} max={150} step={1} value={photoScale}
-                        onInput={e=>setPhotoScale(Number(e.target.value))} onChange={e=>setPhotoScale(Number(e.target.value))}
+                        onInput={e=>schedulePhotoScaleUpdate(Number(e.currentTarget.value))}
+                        onTouchEnd={flushPhotoScaleUpdate} onTouchCancel={flushPhotoScaleUpdate}
+                        onPointerUp={flushPhotoScaleUpdate} onPointerCancel={flushPhotoScaleUpdate} onBlur={flushPhotoScaleUpdate}
                         style={{flex:1}}/>
                       <button type="button" onClick={()=>setPhotoScale(100)}
                         style={{flexShrink:0,padding:'6px 8px',border:'1px solid #E7DDEA',borderRadius:3,background:photoScale===100?'#EEE5F5':'#fff',color:'#667A8C',fontFamily:'inherit',fontSize:'.58rem',fontWeight:700,cursor:'pointer'}}>100%</button>
                     </div>
                     <Lbl t="Frame" sub="白ふち"/>
                     <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
-                      <SBtn active={photoFrame==='none'} onClick={()=>setPhotoFrame('none')}>None</SBtn>
-                      <SBtn active={photoFrame==='white'} onClick={()=>setPhotoFrame('white')}>White Frame</SBtn>
+                      <SBtn active={photoFrame==='none'} onClick={()=>setPhotoFrameBalanced('none')}>None</SBtn>
+                      <SBtn active={photoFrame==='white'} onClick={()=>setPhotoFrameBalanced('white')}>White Frame</SBtn>
                     </div>
                     {photoFrame==='white'&&(<>
                     <Lbl t="Frame Width" sub="白ふちの太さ"/>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>{photoFrameWidth}px</span>
-                      <input type="range" min={2} max={28} value={photoFrameWidth} onInput={e=>setPhotoFrameWidth(Number(e.target.value))} onChange={e=>setPhotoFrameWidth(Number(e.target.value))} onTouchEnd={dblTapReset('photoFrameWidth',()=>setPhotoFrameWidth(9))} style={{flex:1}}/>
+                      <input type="range" min={2} max={28} value={photoFrameWidth} onInput={e=>setPhotoFrameWidthBalanced(Number(e.currentTarget.value))} onTouchEnd={dblTapReset('photoFrameWidth',()=>setPhotoFrameWidthBalanced(DEFAULT_PHOTO_FRAME_WIDTH))} style={{flex:1}}/>
                     </div>
                     </>)}
                     <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
                     <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                       <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {photoOffsetX>0?`+${photoOffsetX}`:photoOffsetX}</span>
-                      <input type="range" min={-80} max={80} value={photoOffsetX} onInput={e=>setPhotoOffsetX(Number(e.target.value))} onChange={e=>setPhotoOffsetX(Number(e.target.value))} onTouchEnd={dblTapReset('photoOffsetX',()=>setPhotoOffsetX(0))} style={{flex:1}}/>
+                      <input type="range" min={-80} max={80} value={photoOffsetX}
+                        onInput={e=>schedulePhotoPositionUpdate('x',Number(e.currentTarget.value))}
+                        onTouchEnd={()=>{flushPhotoPositionUpdate();dblTapReset('photoOffsetX',()=>setPhotoOffsetX(0))();}}
+                        onTouchCancel={flushPhotoPositionUpdate} onPointerUp={flushPhotoPositionUpdate}
+                        onPointerCancel={flushPhotoPositionUpdate} onBlur={flushPhotoPositionUpdate} style={{flex:1}}/>
                     </div>
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {photoOffsetY>0?`+${photoOffsetY}`:photoOffsetY}</span>
-                      <input type="range" min={-80} max={80} value={photoOffsetY} onInput={e=>setPhotoOffsetY(Number(e.target.value))} onChange={e=>setPhotoOffsetY(Number(e.target.value))} onTouchEnd={dblTapReset('photoOffsetY',()=>setPhotoOffsetY(0))} style={{flex:1}}/>
+                      <input type="range" min={-80} max={80} value={photoOffsetY}
+                        onInput={e=>schedulePhotoPositionUpdate('y',Number(e.currentTarget.value))}
+                        onTouchEnd={()=>{flushPhotoPositionUpdate();dblTapReset('photoOffsetY',()=>setPhotoOffsetY(0))();}}
+                        onTouchCancel={flushPhotoPositionUpdate} onPointerUp={flushPhotoPositionUpdate}
+                        onPointerCancel={flushPhotoPositionUpdate} onBlur={flushPhotoPositionUpdate} style={{flex:1}}/>
                     </div>
                   </>
                 )}
@@ -4079,15 +4701,15 @@ function PaletteStory() {
                   ))}
                 </div>
                 <Lbl t="Card Size" sub={`${cardScale}%`}/>
-                <input type="range" min={40} max={120} value={cardScale} onInput={e=>setCardScale(Number(e.target.value))} onChange={e=>setCardScale(Number(e.target.value))} style={{marginBottom:8}}/>
+                <input type="range" min={40} max={120} value={cardScale} onInput={e=>setNumberIfChanged(setCardScale,Number(e.currentTarget.value))} style={{marginBottom:8}}/>
                 <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {cardOffsetX>0?`+${cardOffsetX}`:cardOffsetX}</span>
-                  <input type="range" min={-80} max={80} value={cardOffsetX} onInput={e=>setCardOffsetX(Number(e.target.value))} onChange={e=>setCardOffsetX(Number(e.target.value))} onTouchEnd={dblTapReset('cardOffsetX',()=>setCardOffsetX(0))} style={{flex:1}}/>
+                  <input type="range" min={-80} max={80} value={cardOffsetX} onInput={e=>setNumberIfChanged(setCardOffsetX,Number(e.currentTarget.value))} onTouchEnd={dblTapReset('cardOffsetX',()=>setCardOffsetX(0))} style={{flex:1}}/>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {cardOffsetY>0?`+${cardOffsetY}`:cardOffsetY}</span>
-                  <input type="range" min={-80} max={80} value={cardOffsetY} onInput={e=>setCardOffsetY(Number(e.target.value))} onChange={e=>setCardOffsetY(Number(e.target.value))} onTouchEnd={dblTapReset('cardOffsetY',()=>setCardOffsetY(0))} style={{flex:1}}/>
+                  <input type="range" min={-80} max={80} value={cardOffsetY} onInput={e=>setNumberIfChanged(setCardOffsetY,Number(e.currentTarget.value))} onTouchEnd={dblTapReset('cardOffsetY',()=>setCardOffsetY(0))} style={{flex:1}}/>
                 </div>
                 {colors.length===0&&<div style={{padding:'9px',background:'rgba(255,255,255,.05)',borderRadius:4,color:'rgba(255,255,255,.3)',fontSize:'.74rem',textAlign:'center',marginTop:6}}>先に色を抽出してください</div>}
               </div>
@@ -4098,10 +4720,11 @@ function PaletteStory() {
                 
             <textarea
             rows={2} placeholder="タイトル…" value={titleTxt} onChange={e=>setTitleTxt(e.target.value)} style={{marginBottom:8}}/>
-            <FontPicker value={titleFont} onChange={setTitleFont}/>
+            <FontPicker value={titleFont} pendingValue={pendingFontTargets.title}
+              onChange={value=>requestArtworkFontChange('title',value,titleFont,()=>({bold:latestFontStyleRef.current.titleBold,text:latestFontStyleRef.current.titleTxt}),setTitleFont)}/>
             <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:8}}>
               <span style={{fontSize:'.58rem',color:'#8A90A0',flexShrink:0}}>{titleSize}px</span>
-              <input type="range" min={16} max={44} value={titleSize} onInput={e=>setTitleSize(Number(e.target.value))} onChange={e=>setTitleSize(Number(e.target.value))} style={{flex:1}}/>
+              <input type="range" min={16} max={44} value={titleSize} onInput={e=>setNumberIfChanged(setTitleSize,Number(e.currentTarget.value))} style={{flex:1}}/>
               <input type="color" value={titleColor} onChange={e=>setTitleColor(e.target.value)} style={{width:28,height:28,border:'1px solid #E7DDEA',borderRadius:3,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
             </div>
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:8}}>
@@ -4122,11 +4745,11 @@ function PaletteStory() {
             <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
               <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {titlePos.offsetX>0?`+${titlePos.offsetX}`:(titlePos.offsetX||0)}</span>
-              <input type="range" min={-80} max={80} value={titlePos.offsetX||0} onInput={e=>setTitlePos(p=>({...p,offsetX:Number(e.target.value)}))} onChange={e=>setTitlePos(p=>({...p,offsetX:Number(e.target.value)}))} onTouchEnd={dblTapReset('titleOffsetX',()=>setTitlePos(p=>({...p,offsetX:0})))} style={{flex:1}}/>
+              <input type="range" min={-80} max={80} value={titlePos.offsetX||0} onInput={e=>setPositionAxisIfChanged(setTitlePos,'offsetX',Number(e.currentTarget.value))} onTouchEnd={dblTapReset('titleOffsetX',()=>setTitlePos(p=>(p.offsetX||0)===0?p:{...p,offsetX:0}))} style={{flex:1}}/>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:colors.length>0?10:0}}>
               <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {titlePos.offsetY>0?`+${titlePos.offsetY}`:(titlePos.offsetY||0)}</span>
-              <input type="range" min={-80} max={80} value={titlePos.offsetY||0} onInput={e=>setTitlePos(p=>({...p,offsetY:Number(e.target.value)}))} onChange={e=>setTitlePos(p=>({...p,offsetY:Number(e.target.value)}))} onTouchEnd={dblTapReset('titleOffsetY',()=>setTitlePos(p=>({...p,offsetY:0})))} style={{flex:1}}/>
+              <input type="range" min={-80} max={80} value={titlePos.offsetY||0} onInput={e=>setPositionAxisIfChanged(setTitlePos,'offsetY',Number(e.currentTarget.value))} onTouchEnd={dblTapReset('titleOffsetY',()=>setTitlePos(p=>(p.offsetY||0)===0?p:{...p,offsetY:0}))} style={{flex:1}}/>
             </div>
             {colors.length>0&&(
               <>
@@ -4144,15 +4767,16 @@ function PaletteStory() {
             {tab==='body'&&(
               <div>
                 <textarea rows={3} placeholder={"ひとこと、日付、ハッシュタグなど…"} value={bodyTxt} onChange={e=>setBodyTxt(e.target.value)} style={{marginBottom:8}}/>
-                <FontPicker value={bodyFont} onChange={setBodyFont}/>
+                <FontPicker value={bodyFont} pendingValue={pendingFontTargets.body}
+                  onChange={value=>requestArtworkFontChange('body',value,bodyFont,()=>({bold:latestFontStyleRef.current.bodyBold,text:latestFontStyleRef.current.bodyTxt}),setBodyFont)}/>
                 <div style={{display:'flex',gap:7,alignItems:'center',marginBottom:8}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0}}>{bodySize}px</span>
-                  <input type="range" min={11} max={28} value={bodySize} onInput={e=>setBodySize(Number(e.target.value))} onChange={e=>setBodySize(Number(e.target.value))} style={{flex:1}}/>
+                  <input type="range" min={11} max={28} value={bodySize} onInput={e=>setNumberIfChanged(setBodySize,Number(e.currentTarget.value))} style={{flex:1}}/>
                   <input type="color" value={typeof bodyColor==='string'&&bodyColor.startsWith('#')?bodyColor:'#fff'} onChange={e=>setBodyColor(e.target.value)} style={{width:26,height:26,border:'1px solid rgba(255,255,255,.2)',borderRadius:5,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>間隔 {bodyGap>0?`+${bodyGap}`:bodyGap}</span>
-                  <input type="range" min={-40} max={80} value={bodyGap} onInput={e=>setBodyGap(Number(e.target.value))} onChange={e=>setBodyGap(Number(e.target.value))} style={{flex:1}}/>
+                  <input type="range" min={-40} max={80} value={bodyGap} onInput={e=>setNumberIfChanged(setBodyGap,Number(e.currentTarget.value))} style={{flex:1}}/>
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6,marginBottom:10}}>
                   <button onClick={()=>setBodyBold(false)} style={{padding:'6px 0',background:!bodyBold?'#EEE5F5':'#fff',color:!bodyBold?'#3D4458':'#8A90A0',border:`1.5px solid ${!bodyBold?'#D9C7E3':'#E7DDEA'}`,borderRadius:3,fontFamily:'inherit',cursor:'pointer',transition:'all .15s'}}>
@@ -4172,11 +4796,11 @@ function PaletteStory() {
                 <Lbl t="Position (fine)" sub="左右・上下の微調整"/>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>左右 {bodyPos.offsetX>0?`+${bodyPos.offsetX}`:(bodyPos.offsetX||0)}</span>
-                  <input type="range" min={-80} max={80} value={bodyPos.offsetX||0} onInput={e=>setBodyPos(p=>({...p,offsetX:Number(e.target.value)}))} onChange={e=>setBodyPos(p=>({...p,offsetX:Number(e.target.value)}))} onTouchEnd={dblTapReset('bodyOffsetX',()=>setBodyPos(p=>({...p,offsetX:0})))} style={{flex:1}}/>
+                  <input type="range" min={-80} max={80} value={bodyPos.offsetX||0} onInput={e=>setPositionAxisIfChanged(setBodyPos,'offsetX',Number(e.currentTarget.value))} onTouchEnd={dblTapReset('bodyOffsetX',()=>setBodyPos(p=>(p.offsetX||0)===0?p:{...p,offsetX:0}))} style={{flex:1}}/>
                 </div>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10}}>
                   <span style={{fontSize:'.56rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>上下 {bodyPos.offsetY>0?`+${bodyPos.offsetY}`:(bodyPos.offsetY||0)}</span>
-                  <input type="range" min={-80} max={80} value={bodyPos.offsetY||0} onInput={e=>setBodyPos(p=>({...p,offsetY:Number(e.target.value)}))} onChange={e=>setBodyPos(p=>({...p,offsetY:Number(e.target.value)}))} onTouchEnd={dblTapReset('bodyOffsetY',()=>setBodyPos(p=>({...p,offsetY:0})))} style={{flex:1}}/>
+                  <input type="range" min={-80} max={80} value={bodyPos.offsetY||0} onInput={e=>setPositionAxisIfChanged(setBodyPos,'offsetY',Number(e.currentTarget.value))} onTouchEnd={dblTapReset('bodyOffsetY',()=>setBodyPos(p=>(p.offsetY||0)===0?p:{...p,offsetY:0}))} style={{flex:1}}/>
                 </div>
                 {colors.length>0&&(
                   <>
@@ -4220,10 +4844,11 @@ function PaletteStory() {
                         <button onClick={()=>deleteFreeText(ft.id)} style={{width:28,height:28,flexShrink:0,border:'1px solid #E7DDEA',borderRadius:4,background:'#fff',color:'#B685C1',cursor:'pointer',fontSize:'.8rem'}}>🗑</button>
                         <button data-undo-ignore="true" onClick={()=>closeFreeTextEditor(ft.id)} style={{width:28,height:28,flexShrink:0,border:'1px solid #E7DDEA',borderRadius:4,background:'#fff',color:'#8A90A0',cursor:'pointer',fontSize:'.7rem'}}>閉</button>
                       </div>
-                      <FontPicker value={ft.font} onChange={v=>updateFreeText(ft.id,{font:v})}/>
+                      <FontPicker value={ft.font} pendingValue={pendingFontTargets[`text:${ft.id}`]}
+                        onChange={value=>requestArtworkFontChange(`text:${ft.id}`,value,ft.font,()=>{const latest=latestFontStyleRef.current.freeTexts.find(text=>text.id===ft.id)||ft;return {bold:latest.bold,text:latest.text};},font=>updateFreeText(ft.id,{font}))}/>
                       <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:6}}>
                         <span style={{fontSize:'.54rem',color:'#8A90A0',flexShrink:0}}>{ft.size}px</span>
-                        <input type="range" min={11} max={60} value={ft.size} onInput={e=>updateFreeText(ft.id,{size:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{size:Number(e.target.value)})} style={{flex:1}}/>
+                        <input type="range" min={TEXT_PLUS_MIN_SIZE} max={TEXT_PLUS_MAX_SIZE} value={ft.size} onInput={e=>updateFreeText(ft.id,{size:Number(e.currentTarget.value)})} style={{flex:1}}/>
                         <input type="color" value={typeof ft.color==='string'&&ft.color.startsWith('#')?ft.color:'#3D4458'} onChange={e=>updateFreeText(ft.id,{color:e.target.value})} style={{width:24,height:24,border:'1px solid rgba(0,0,0,.1)',borderRadius:5,padding:1,cursor:'pointer',background:'none',flexShrink:0}}/>
                       </div>
                       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5,marginBottom:6}}>
@@ -4232,7 +4857,7 @@ function PaletteStory() {
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:8}}>
                         <span style={{fontSize:'.54rem',color:'#8A90A0',flexShrink:0,whiteSpace:'nowrap'}}>回転 {ft.rotation?Math.round(ft.rotation):0}°</span>
-                        <input type="range" min={-180} max={180} value={Math.round(ft.rotation||0)} onInput={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onChange={e=>updateFreeText(ft.id,{rotation:Number(e.target.value)})} onTouchEnd={dblTapReset('ftRotation'+ft.id,()=>updateFreeText(ft.id,{rotation:0}))} style={{flex:1}}/>
+                        <input type="range" min={-180} max={180} value={Math.round(ft.rotation||0)} onInput={e=>updateFreeText(ft.id,{rotation:Number(e.currentTarget.value)})} onTouchEnd={dblTapReset('ftRotation'+ft.id,()=>updateFreeText(ft.id,{rotation:0}))} style={{flex:1}}/>
                       </div>
                       <button onClick={()=>updateFreeText(ft.id,{x:CW/2,y:CH/2})}
                         style={{width:'100%',padding:'6px 0',border:'1.5px solid #D9C7E3',borderRadius:3,background:'#fff',color:'#B685C1',fontFamily:'inherit',fontSize:'.7rem',fontWeight:700,cursor:'pointer',marginBottom:colors.length>0?6:0}}>
@@ -4280,124 +4905,33 @@ function PaletteStory() {
             <div style={{fontFamily:"'Plus Jakarta Sans','DM Sans',sans-serif",fontWeight:800,fontSize:'1.15rem',color:'#B685C1',marginBottom:16}}>𖤐 How to use</div>
             {[
               ['♡ はじめに',<div>
-                <HL>写真とカラーカードで、</HL>
-                <HL>世界にひとつだけの一枚が作れます♡</HL>
+                <HL>お気に入りの写真から色を抽出して、</HL>
+                <HL>世界にひとつだけの一枚を作れます♡</HL>
               </div>],
-              ['♡ 基本の使い方',<div>
-                <HL>1. 写真を選ぶ</HL>
-                <HL>2. <b>色を抽出する</b> をタップ</HL>
-                <HL>3. 好きな色を3色選ぶ</HL>
-                <HL>4. カードの形や位置を整える</HL>
-                <HL>5. タイトル・本文・<b>Text+</b>を追加する</HL>
-                <HL>6. <b>Preview</b>で全体を確認する</HL>
-                <HL>7. <b>Save</b>から保存・共有する</HL>
-              </div>],
-              ['♡ カラー',<div>
-                <HL><b>色を抽出する</b> を押すと、</HL>
-                <HL>写真から30色を抽出します。</HL><HGap/>
-                <HL>好きな色を3色選ぶと、</HL>
-                <HL>カラーカードへ反映されます。</HL><HGap/>
-                <HL>別の色をタップすると、</HL>
-                <HL>選択中の3色を入れ替えられます。</HL><HGap/>
-                <HL><b>おまかせ3色</b> を押すと、</HL>
-                <HL>30色の中からおすすめの組み合わせを</HL>
-                <HL>自動で選びます。</HL><HGap/>
-                <HL>写真を変更すると、</HL>
-                <HL>カラー履歴は新しい写真用にリセットされます。</HL>
+              ['♡ つくり方',<div>
+                <HL>1. <b>Photo</b>で写真を選ぶ</HL>
+                <HL>2. <b>Color</b>で<b>色を抽出する</b>をタップ</HL>
+                <HL>3. 色・カード・文字を自由にアレンジ</HL>
+                <HL>4. <b>Preview</b>で確認</HL>
+                <HL>5. <b>Save</b>で保存</HL>
               </div>],
               ['♡ 編集',<div>
-                <HL><b>Photo</b>では、</HL>
-                <HL>写真の変更・トリミング・サイズ・位置を調整できます。</HL><HGap/>
-                <HL><b>Card</b>では、</HL>
-                <HL>カラーカードの種類・位置・サイズを変更できます。</HL><HGap/>
-                <HL><b>Title</b>・<b>Body</b>では、</HL>
-                <HL>文字・フォント・色・サイズ・位置を</HL>
-                <HL>設定パネルから調整できます。</HL><HGap/>
-                <HL><b>Text+</b>では好きな文字を追加し、</HL>
-                <HL>作品上で移動できます。</HL><HGap/>
-                <HL>2本指で移動・拡大縮小・回転もできます。</HL><HGap/>
-                <HL><b>Text+</b>を中央付近へ動かすと、</HL>
-                <HL>位置合わせ用のセンターガイドが表示されます。</HL><HGap/>
-                <HL>操作を戻したい時は、</HL>
-                <HL>上部の<b>Undo</b>を使います。</HL>
-              </div>],
-              ['♡ 余白ガイド',<div>
-                <HL>余白ガイドをONにすると、</HL>
-                <HL>ストーリー画面でUIが重なりやすい範囲を</HL>
-                <HL>編集画面で確認できます。</HL><HGap/>
-                <HL>余白ガイドやセンターガイドは、</HL>
-                <HL>保存画像・共有画像には含まれません。</HL>
-              </div>],
-              ['♡ Preview',<div>
-                <HL>作品全体を拡大して、</HL>
-                <HL>細かな部分まで確認できます。</HL><HGap/>
-                <HL><b>Text+</b>以外の場所をピンチすると、</HL>
-                <HL>作品を拡大・縮小できます。</HL><HGap/>
-                <HL>ドラッグすると、</HL>
-                <HL>拡大した作品を移動できます。</HL><HGap/>
-                <HL><b>Text+</b>は<b>Preview</b>上でも、</HL>
-                <HL>位置や大きさを調整できます。</HL><HGap/>
-                <HL>2本指で移動・拡大縮小・回転もできます。</HL><HGap/>
-                <HL>中央へ合わせると、</HL>
-                <HL>センターガイドが表示されます。</HL><HGap/>
-                <HL><b>Preview</b>の表示倍率や位置は、</HL>
-                <HL>保存画像には反映されません。</HL><HGap/>
-                <HL>作品全体を9:16で書き出します。</HL>
-              </div>],
-              ['♡ 保存・共有',<div>
-                <HL>編集内容はギャラリーへ自動保存されます。</HL><HGap/>
-                <HL>上部には</HL>
-                <HL><b>Saving...</b> または <b>Saved 15:20</b> のように、</HL>
-                <HL>保存状態が表示されます。</HL><HGap/>
-                <HL><b>Save</b>から、</HL>
-                <HL>カメラロール保存または</HL>
-                <HL>ギャラリーへの手動保存を選べます。</HL><HGap/>
-                <HL>カメラロールへ、</HL>
-                <HL>高画質PNGで保存できます。</HL><HGap/>
-                <HL>保存画像には、</HL>
-                <HL>余白ガイド・センターガイド・編集UIは含まれません。</HL><HGap/>
-                <HL><b>Preview</b>での表示倍率や位置は、</HL>
-                <HL>保存画像へ反映されません。</HL><HGap/>
-                <HL>共有機能が利用できない環境では、</HL>
-                <HL>長押し保存画面へ切り替わります。</HL>
-              </div>],
-              ['♡ ギャラリー',<div>
-                <HL>編集内容は自動保存されるため、</HL>
-                <HL>保存忘れを防げます。</HL><HGap/>
-                <HL>保存した作品は、</HL>
-                <HL>ギャラリーから後で編集できます。</HL><HGap/>
-                <HL>既存作品を開いて編集すると、</HL>
-                <HL>同じ作品へ上書き保存されます。</HL><HGap/>
-                <HL><b>複製</b> を使うと、</HL>
-                <HL>同じ内容を新しい作品として編集できます。</HL><HGap/>
-                <HL>新しく作る場合は、</HL>
-                <HL><b>＋ 新しく作る</b> から始めます。</HL>
-              </div>],
-              ['♡ Reset',<div>
-                <HL>最初からやり直したい時は、</HL>
-                <HL>上部の<b>Reset</b>を使います。</HL><HGap/>
-                <HL>確認画面でリセットを選ぶと、</HL>
-                <HL>現在の編集内容が初期状態へ戻ります。</HL>
-              </div>],
-              ['♡ 全画面で使う方法',<div>
-                <HL>1. Safari下部の共有ボタン（↑）をタップ</HL>
-                <HL>2. <b>ホーム画面に追加</b> を選択</HL>
-                <HL>3. <b>追加</b> を押すと、</HL>
-                <HL>アプリのように全画面で使えます。</HL>
-              </div>],
-              ['♡ ご利用について',<div>
-                <HL>作品データは、</HL>
-                <HL>この端末のSafariに保存されます。</HL><HGap/>
-                <HL>Safariの</HL>
-                <HL><b>Webサイトデータを削除</b> を実行すると、</HL>
-                <HL>作品データも削除されます。</HL><HGap/>
-                <HL>別の端末や別のブラウザへ</HL>
-                <HL>作品データは自動で引き継がれません。</HL>
+                <HL>・下のタブから各項目を編集できます。</HL>
+                <div style={{display:'flex',alignItems:'flex-start',width:'100%'}}>
+                  <span aria-hidden="true" style={{flex:'0 0 auto'}}>・</span>
+                  <span style={{flex:1,minWidth:0}}>
+                    <HL>作品上の要素を短くタップすると、</HL>
+                    <HL>その項目を編集できます。</HL>
+                  </span>
+                </div><HGap/>
+                <HL><b>Text+</b></HL><HGap/>
+                <HL>・1本指：移動</HL>
+                <HL>・2本指：移動・拡大縮小・回転</HL>
               </div>],
             ].map(([heading,content])=>(
               <section key={heading} style={{marginBottom:14}}>
                 <div style={{fontWeight:700,fontSize:'.82rem',color:'#B685C1',marginBottom:6}}>{heading}</div>
-                <div className="hint-copy" style={{width:'100%',maxWidth:'100%',background:'#FDF7FC',border:'1.5px solid #F0DFF0',borderRadius:14,padding:'14px 12px',fontSize:'.75rem',lineHeight:1.9,color:'#8A7A9C',fontFeatureSettings:'"palt"',letterSpacing:'-.02em',overflowX:'visible'}}>{content}</div>
+                <div className="hint-copy" style={{width:'100%',maxWidth:'100%',background:'#FDF7FC',border:'1.5px solid #F0DFF0',borderRadius:14,padding:'13px 11px',fontSize:'.74rem',lineHeight:1.82,color:'#8A7A9C',fontFeatureSettings:'"palt"',letterSpacing:'-.02em',overflowX:'hidden',WebkitTextSizeAdjust:'100%'}}>{content}</div>
               </section>
             ))}
             <button onClick={()=>setShowHowTo(false)}
@@ -4535,12 +5069,12 @@ function PaletteStory() {
                 <canvas width={CW*RENDER_SCALE} height={CH*RENDER_SCALE} ref={fullPreviewRef}
                   style={{position:'absolute',inset:0,width:'100%',height:'100%',display:'block'}}/>
                 <svg viewBox={`0 0 ${CW} ${CH}`} preserveAspectRatio="none"
-                  style={{position:'absolute',inset:0,width:'100%',height:'100%',display:'block',overflow:'hidden',pointerEvents:'none'}}>
+                  style={{position:'absolute',inset:0,width:'100%',height:'100%',display:'block',overflow:'hidden',pointerEvents:'none',fontSynthesis:'none'}}>
                   {freeTexts.map(ft=>ft.text&&ft.text.trim()?(
                     <text key={ft.id} ref={el=>{previewTextNodeRefs.current[ft.id]=el;}}
                       x={ft.x} y={ft.y} transform={`rotate(${ft.rotation||0} ${ft.x} ${ft.y})`}
                       fill={ft.color||'#3D4458'} fontFamily={ft.font||"'Playfair Display', serif"}
-                      fontSize={ft.size||28} fontWeight={ft.bold?700:400}
+                      fontSize={ft.size||28} fontWeight={getArtworkFontWeight(ft.font,ft.bold)}
                       textAnchor="middle" dominantBaseline="central">{ft.text}</text>
                   ):null)}
                 </svg>
@@ -4551,7 +5085,7 @@ function PaletteStory() {
                   <div style={{position:'absolute',top:'50%',left:0,right:0,height:'calc(1px / var(--preview-view-scale, 1))',background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)',pointerEvents:'none',zIndex:3}}/>
                 )}
                 <div ref={previewRotationGuideRef} aria-hidden="true"
-                  style={{position:'absolute',display:'none',left:0,right:0,height:'calc(1px / var(--preview-view-scale, 1))',pointerEvents:'none',zIndex:4,opacity:.58,background:'repeating-linear-gradient(90deg,#9F7BC2 0 7px,transparent 7px 12px)',boxShadow:'0 0 3px rgba(159,123,194,.28)'}}/>
+                  style={{position:'absolute',display:'none',left:0,right:0,height:'calc(1px / var(--preview-view-scale, 1))',pointerEvents:'none',zIndex:4,background:'#C8A8C8',boxShadow:'0 0 4px rgba(200,168,200,.8)'}}/>
                 </div>
               </div>
             </div>
@@ -4599,7 +5133,7 @@ function PaletteStory() {
 }
 
 const root=ReactDOM.createRoot(document.getElementById('root'));
-root.render(<PaletteStory/>);
+root.render(<PurchaserAccessGate/>);
 </script>
 </body>
 </html>
